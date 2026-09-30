@@ -2,6 +2,7 @@
 (function () {
   const DL = window.DL;
   const St = DL.Storage = {};
+  DL.dimSlot = (slot, dim) => (dim ? slot + '@' + dim : slot);
   let dbp = null;
 
   function open() {
@@ -48,6 +49,7 @@
     const t = db.transaction(['worlds', 'chunks'], 'readwrite');
     t.objectStore('worlds').delete(slot);
     t.objectStore('chunks').delete(IDBKeyRange.bound(slot + ':', slot + ':￿'));
+    for (let d = 1; d <= 3; d++) t.objectStore('chunks').delete(IDBKeyRange.bound(slot + '@' + d + ':', slot + '@' + d + ':￿'));
     t.oncomplete = () => resolve(); t.onerror = () => resolve();
   }));
 

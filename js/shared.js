@@ -28,7 +28,22 @@ function DL_SHARED_FACTORY() {
     'ladder', 'snow', 'grass_side_snow', 'ice', 'cactus_side', 'cactus_top', 'cactus_bottom', 'clay',
     'pumpkin_top', 'pumpkin_side', 'pumpkin_face', 'jack_o_lantern_face', 'water', 'water_flow', 'lava', 'lava_flow',
     'destroy_0', 'destroy_1', 'destroy_2', 'destroy_3', 'destroy_4', 'destroy_5', 'destroy_6', 'destroy_7',
-    'destroy_8', 'destroy_9', 'white', 'fire_2'
+    'destroy_8', 'destroy_9', 'white', 'fire_2',
+    // overworld structures
+    'sandstone_top', 'sandstone_side', 'sandstone_bottom', 'chiseled_sandstone', 'cobweb', 'rail', 'stone_bricks', 'mossy_stone_bricks',
+    'cracked_stone_bricks', 'iron_bars', 'dark_planks', 'dark_log_side', 'dark_log_top', 'prismarine', 'prismarine_bricks', 'dark_prismarine',
+    'sea_lantern', 'hay_side', 'hay_top', 'terracotta', 'emerald_ore', 'emerald_block', 'dirt_path_top', 'dirt_path_side',
+    'bone_block_side', 'bone_block_top', 'cauldron_side', 'cauldron_top', 'cauldron_inner',
+    // nether
+    'netherrack', 'soul_sand', 'glowstone', 'nether_portal', 'nether_bricks', 'nether_wart_0', 'nether_wart_1', 'nether_wart_2',
+    'quartz_ore', 'magma', 'blackstone', 'blackstone_top', 'polished_blackstone_bricks', 'gilded_blackstone', 'crying_obsidian',
+    // end
+    'end_stone', 'end_portal', 'end_frame_side', 'end_frame_top', 'end_frame_eye', 'dragon_egg', 'purpur_block', 'purpur_pillar_side',
+    'purpur_pillar_top', 'end_stone_bricks', 'end_rod', 'chorus_plant', 'chorus_flower',
+    // aether
+    'aether_grass_top', 'aether_grass_side', 'aether_dirt', 'holystone', 'mossy_holystone', 'holystone_bricks', 'quicksoil', 'icestone',
+    'ambrosium_ore', 'zanite_ore', 'gravitite_ore', 'skyroot_log_side', 'skyroot_log_top', 'skyroot_planks', 'skyroot_leaves', 'golden_oak_log_side',
+    'golden_oak_leaves', 'aercloud', 'blue_aercloud', 'aether_portal', 'purple_flower', 'white_flower', 'zanite_block'
   ];
   const T = {};
   for (let i = 0; i < TILE_NAMES.length; i++) T[TILE_NAMES[i]] = i;
@@ -40,7 +55,7 @@ function DL_SHARED_FACTORY() {
   /* ------------------------------------------------------------------ */
   const R = {
     NONE: 0, CUBE: 1, CROSS: 2, TORCH: 3, LIQUID: 4, SLAB: 5, STAIRS: 6, CACTUS: 7,
-    SNOW: 8, FARMLAND: 9, LADDER: 10, FENCE: 11, DOOR: 12, CROPS: 13, FIRE: 14
+    SNOW: 8, FARMLAND: 9, LADDER: 10, FENCE: 11, DOOR: 12, CROPS: 13, FIRE: 14, SHAPE: 15, PORTAL: 16
   };
   S.R = R;
 
@@ -152,6 +167,101 @@ function DL_SHARED_FACTORY() {
   def(86, 'pumpkin', { tex: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'pumpkin_side' }, hardness: 1, tool: 'axe', sound: 'wood' });
   def(91, 'jack_o_lantern', { tex: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'pumpkin_side' }, hardness: 1, tool: 'axe', sound: 'wood', emit: 15 });
 
+  /* ---- structure blocks ---- */
+  const PK = (o) => Object.assign({ hardness: 1.5, tool: 'pickaxe' }, o);
+  def(24, 'sandstone', PK({ tex: { top: 'sandstone_top', bottom: 'sandstone_bottom', side: 'sandstone_side' }, hardness: 0.8 }));
+  def(95, 'chiseled_sandstone', PK({ tex: { top: 'sandstone_top', bottom: 'sandstone_bottom', side: 'chiseled_sandstone' }, hardness: 0.8 }));
+  def(128, 'sandstone_stairs', PK({ tex: { top: 'sandstone_top', bottom: 'sandstone_bottom', side: 'sandstone_side' }, render: R.STAIRS, hardness: 0.8 }));
+  def(30, 'cobweb', { tex: 'cobweb', render: R.CROSS, solid: false, hardness: 4, cutout: true, sound: 'cloth', drop: 287 });
+  def(66, 'rail', { tex: 'rail', render: R.SHAPE, solid: false, hardness: 0.7, cutout: true, sound: 'metal' });
+  def(98, 'stone_bricks', PK({ tex: 'stone_bricks' }));
+  def(92, 'mossy_stone_bricks', PK({ tex: 'mossy_stone_bricks' }));
+  def(93, 'cracked_stone_bricks', PK({ tex: 'cracked_stone_bricks' }));
+  def(109, 'stone_brick_stairs', PK({ tex: 'stone_bricks', render: R.STAIRS }));
+  def(101, 'iron_bars', PK({ tex: 'iron_bars', render: R.SHAPE, hardness: 5, cutout: true, sound: 'metal' }));
+  def(97, 'dark_planks', { tex: 'dark_planks', hardness: 2, tool: 'axe', sound: 'wood', flammable: true });
+  def(99, 'dark_log', { tex: { top: 'dark_log_top', bottom: 'dark_log_top', side: 'dark_log_side' }, hardness: 2, tool: 'axe', sound: 'wood', flammable: true });
+  def(168, 'prismarine', PK({ tex: 'prismarine' }));
+  def(102, 'prismarine_bricks', PK({ tex: 'prismarine_bricks' }));
+  def(103, 'dark_prismarine', PK({ tex: 'dark_prismarine' }));
+  def(169, 'sea_lantern', { tex: 'sea_lantern', hardness: 0.3, emit: 15, sound: 'glass' });
+  def(170, 'hay_bale', { tex: { top: 'hay_top', bottom: 'hay_top', side: 'hay_side' }, hardness: 0.5, sound: 'grass' });
+  def(172, 'terracotta', PK({ tex: 'terracotta', hardness: 1.25 }));
+  def(129, 'emerald_ore', PK({ tex: 'emerald_ore', hardness: 3, tier: 3, drop: 388 }));
+  def(133, 'emerald_block', PK({ tex: 'emerald_block', hardness: 5, tier: 3, sound: 'metal' }));
+  def(208, 'dirt_path', { tex: { top: 'dirt_path_top', bottom: 'dirt', side: 'dirt_path_side' }, render: R.SHAPE, hardness: 0.65, tool: 'shovel', sound: 'gravel', lightOpacity: 15, drop: 3 });
+  def(216, 'bone_block', PK({ tex: { top: 'bone_block_top', bottom: 'bone_block_top', side: 'bone_block_side' }, hardness: 2 }));
+  def(118, 'cauldron', PK({ tex: { top: 'cauldron_top', bottom: 'cauldron_inner', side: 'cauldron_side' }, render: R.SHAPE, hardness: 2, sound: 'metal' }));
+  /* ---- nether ---- */
+  def(87, 'netherrack', PK({ tex: 'netherrack', hardness: 0.4 }));
+  def(88, 'soul_sand', { tex: 'soul_sand', hardness: 0.5, tool: 'shovel', sound: 'sand' });
+  def(89, 'glowstone', { tex: 'glowstone', hardness: 0.3, emit: 15, sound: 'glass', drop: 348, dropCount: 3 });
+  def(90, 'nether_portal', { tex: 'nether_portal', render: R.PORTAL, solid: false, layer: 1, emit: 11, hardness: -1, drop: 0, sound: 'glass' });
+  def(112, 'nether_bricks', PK({ tex: 'nether_bricks', hardness: 2 }));
+  def(113, 'nether_brick_fence', PK({ tex: 'nether_bricks', render: R.FENCE, hardness: 2 }));
+  def(114, 'nether_brick_stairs', PK({ tex: 'nether_bricks', render: R.STAIRS, hardness: 2 }));
+  def(115, 'nether_wart', { tex: 'nether_wart_2', render: R.CROPS, solid: false, hardness: 0, sound: 'grass', cutout: true, drop: 0 });
+  def(153, 'quartz_ore', PK({ tex: 'quartz_ore', hardness: 3, tier: 1, drop: 406 }));
+  def(213, 'magma_block', PK({ tex: 'magma', hardness: 0.5, emit: 3 }));
+  def(104, 'blackstone', PK({ tex: { top: 'blackstone_top', bottom: 'blackstone_top', side: 'blackstone' } }));
+  def(105, 'polished_blackstone_bricks', PK({ tex: 'polished_blackstone_bricks' }));
+  def(106, 'gilded_blackstone', PK({ tex: 'gilded_blackstone' }));
+  def(107, 'crying_obsidian', PK({ tex: 'crying_obsidian', hardness: 10, tier: 4, emit: 10 }));
+  /* ---- end ---- */
+  def(121, 'end_stone', PK({ tex: 'end_stone', hardness: 3 }));
+  def(119, 'end_portal', { tex: 'end_portal', render: R.SHAPE, solid: false, emit: 15, hardness: -1, drop: 0 });
+  def(120, 'end_portal_frame', { tex: { top: 'end_frame_top', bottom: 'end_stone', side: 'end_frame_side' }, render: R.SHAPE, hardness: -1, emit: 1, drop: 0 });
+  def(122, 'dragon_egg', { tex: 'dragon_egg', render: R.SHAPE, hardness: 3, emit: 1 });
+  def(201, 'purpur_block', PK({ tex: 'purpur_block' }));
+  def(202, 'purpur_pillar', PK({ tex: { top: 'purpur_pillar_top', bottom: 'purpur_pillar_top', side: 'purpur_pillar_side' } }));
+  def(203, 'purpur_stairs', PK({ tex: 'purpur_block', render: R.STAIRS }));
+  def(206, 'end_stone_bricks', PK({ tex: 'end_stone_bricks', hardness: 3 }));
+  def(198, 'end_rod', { tex: 'end_rod', render: R.SHAPE, hardness: 0, emit: 14, cutout: true, sound: 'wood' });
+  def(199, 'chorus_plant', { tex: 'chorus_plant', render: R.SHAPE, hardness: 0.4, tool: 'axe', sound: 'wood', drop: 432 });
+  def(200, 'chorus_flower', { tex: 'chorus_flower', hardness: 0.4, tool: 'axe', sound: 'wood' });
+  /* ---- aether ---- */
+  def(220, 'aether_grass', { tex: { top: 'aether_grass_top', bottom: 'aether_dirt', side: 'aether_grass_side' }, hardness: 0.6, tool: 'shovel', sound: 'grass', drop: 221 });
+  def(221, 'aether_dirt', { tex: 'aether_dirt', hardness: 0.5, tool: 'shovel', sound: 'gravel' });
+  def(222, 'holystone', PK({ tex: 'holystone', hardness: 1 }));
+  def(223, 'mossy_holystone', PK({ tex: 'mossy_holystone', hardness: 1 }));
+  def(224, 'holystone_bricks', PK({ tex: 'holystone_bricks', hardness: 1.5 }));
+  def(225, 'quicksoil', { tex: 'quicksoil', hardness: 0.5, tool: 'shovel', sound: 'sand', slip: 1.03 });
+  def(226, 'icestone', PK({ tex: 'icestone', hardness: 1, sound: 'glass' }));
+  def(227, 'ambrosium_ore', PK({ tex: 'ambrosium_ore', hardness: 2, drop: 440, emit: 4 }));
+  def(228, 'zanite_ore', PK({ tex: 'zanite_ore', hardness: 3, tier: 1, drop: 441 }));
+  def(229, 'gravitite_ore', PK({ tex: 'gravitite_ore', hardness: 5, tier: 3 }));
+  def(230, 'skyroot_log', { tex: { top: 'skyroot_log_top', bottom: 'skyroot_log_top', side: 'skyroot_log_side' }, hardness: 2, tool: 'axe', sound: 'wood' });
+  def(231, 'skyroot_planks', { tex: 'skyroot_planks', hardness: 2, tool: 'axe', sound: 'wood' });
+  def(232, 'skyroot_leaves', { tex: 'skyroot_leaves', hardness: 0.2, sound: 'grass', lightOpacity: 1, cutout: true, drop: 0 });
+  def(233, 'golden_oak_log', { tex: { top: 'skyroot_log_top', bottom: 'skyroot_log_top', side: 'golden_oak_log_side' }, hardness: 2, tool: 'axe', sound: 'wood' });
+  def(234, 'golden_oak_leaves', { tex: 'golden_oak_leaves', hardness: 0.2, sound: 'grass', lightOpacity: 1, cutout: true, drop: 0, emit: 2 });
+  def(235, 'aercloud', { tex: 'aercloud', solid: false, layer: 1, lightOpacity: 1, selfCull: true, hardness: 0.2, sound: 'cloth', opaque: false });
+  def(236, 'blue_aercloud', { tex: 'blue_aercloud', solid: false, layer: 1, lightOpacity: 1, selfCull: true, hardness: 0.2, sound: 'cloth', opaque: false });
+  def(237, 'aether_portal', { tex: 'aether_portal', render: R.PORTAL, solid: false, layer: 1, emit: 11, hardness: -1, drop: 0, sound: 'glass' });
+  def(238, 'purple_flower', { tex: 'purple_flower', render: R.CROSS, solid: false, hardness: 0, sound: 'grass', cutout: true });
+  def(239, 'white_flower', { tex: 'white_flower', render: R.CROSS, solid: false, hardness: 0, sound: 'grass', cutout: true });
+  def(240, 'zanite_block', PK({ tex: 'zanite_block', hardness: 3, sound: 'metal' }));
+  // non-cube "opaque" flags for clouds (def() forces opaque for cubes)
+  OPAQUE[235] = OPAQUE[236] = 0; blocks[235].opaque = blocks[236].opaque = false;
+
+  /** Box lists (1/16 units) for SHAPE blocks. */
+  function shapeBoxes(id, meta) {
+    switch (id) {
+      case 66: return [[0, 0, 0, 16, 1, 16]];
+      case 101: return [[7, 0, 0, 9, 16, 16], [0, 0, 7, 16, 16, 9]];
+      case 208: return [[0, 0, 0, 16, 15, 16]];
+      case 118: return [[0, 3, 0, 16, 16, 2], [0, 3, 14, 16, 16, 16], [0, 3, 2, 2, 16, 14], [14, 3, 2, 16, 16, 14], [2, 3, 2, 14, 4, 14],
+        [0, 0, 0, 4, 3, 4], [12, 0, 0, 16, 3, 4], [0, 0, 12, 4, 3, 16], [12, 0, 12, 16, 3, 16]];
+      case 119: return [[0, 11, 0, 16, 12, 16]];
+      case 120: return (meta & 4) ? [[0, 0, 0, 16, 13, 16], [4, 13, 4, 12, 16, 12]] : [[0, 0, 0, 16, 13, 16]];
+      case 122: return [[6, 15, 6, 10, 16, 10], [5, 14, 5, 11, 15, 11], [4, 12, 4, 12, 14, 12], [3, 3, 3, 13, 12, 13], [4, 1, 4, 12, 3, 12], [5, 0, 5, 11, 1, 11]];
+      case 198: return [[7, 1, 7, 9, 16, 9], [6, 0, 6, 10, 1, 10]];
+      case 199: return [[4, 0, 4, 12, 16, 12], [2, 5, 2, 14, 11, 14]];
+    }
+    return [[0, 0, 0, 16, 16, 16]];
+  }
+  S.shapeBoxes = shapeBoxes;
+
   S.blocks = blocks; S.B = B;
   S.RENDER = RENDER; S.OPAQUE = OPAQUE; S.SOLID = SOLID; S.LAYER = LAYER;
   S.LOPAC = LOPAC; S.LEMIT = LEMIT; S.REPLACE = REPLACE; S.LIQUID = LIQUID; S.TEX = TEX;
@@ -175,6 +285,8 @@ function DL_SHARED_FACTORY() {
     if (id === B.grass && face === 1 && (above === B.snow_layer || above === B.snow_block)) return T.snow;
     if (id === B.wheat) return T.wheat_0 + Math.min(7, meta & 7);
     if (id === B.farmland && face === 1) return meta > 0 ? T.farmland_wet : T.farmland_dry;
+    if (id === B.end_portal_frame && face === 1 && (meta & 4)) return T.end_frame_eye;
+    if (id === B.nether_wart) return T.nether_wart_0 + [0, 1, 1, 2][Math.min(3, meta & 3)];
     if (id === B.wooden_door) return (meta & 8) ? T.door_top : T.door_bottom;
     return TEX[id * 6 + face];
   }
@@ -280,8 +392,9 @@ function DL_SHARED_FACTORY() {
   S.BIOME = BIOME;
   S.BIOME_NAMES = ['Plains', 'Forest', 'Desert', 'Tundra', 'Seasonal Forest'];
 
-  function Generator(seed) {
+  function Generator(seed, dim) {
     this.seed = seed | 0;
+    this.dim = dim | 0;
     const rng = new RNG(seed);
     this.low = new Octaves(rng, 6);
     this.high = new Octaves(rng, 6);
@@ -295,6 +408,8 @@ function DL_SHARED_FACTORY() {
     this.rng = new RNG(0);
     this.tempGrid = new Float32Array(25);
     this.humidGrid = new Float32Array(25);
+    const r2 = new RNG((seed ^ 0x5eed0d1) + this.dim * 7919);
+    this.d1 = new Octaves(r2, 5); this.d2 = new Octaves(r2, 4); this.d3 = new Octaves(r2, 4); this.d4 = new Octaves(r2, 3);
   }
   S.Generator = Generator;
 
@@ -320,7 +435,10 @@ function DL_SHARED_FACTORY() {
     return classifyBiome(t, h);
   };
 
-  Generator.prototype.generate = function (cx, cz) {
+  Generator.prototype.generate = function (cx, cz, noCaves) {
+    if (this.dim === 1) return this.genNether(cx, cz);
+    if (this.dim === 2) return this.genEnd(cx, cz);
+    if (this.dim === 3) return this.genAether(cx, cz);
     const blocks = new Uint8Array(16 * 16 * CH);
     const meta = new Uint8Array(16 * 16 * CH);
     const biomes = new Uint8Array(256);
@@ -431,8 +549,109 @@ function DL_SHARED_FACTORY() {
         }
       }
     }
-    this.carveCaves(cx, cz, blocks);
+    if (!noCaves) this.carveCaves(cx, cz, blocks);
     return { blocks, meta, biomes };
+  };
+
+  /* Shared 3D density helper: fills blocks from density fn sampled on a 4x8x4 grid */
+  Generator.prototype.densityFill = function (cx, cz, fn, place) {
+    const NX = 5, NY = 17, NZ = 5, bx = cx * 16, bz = cz * 16;
+    const dens = new Float32Array(NX * NY * NZ);
+    for (let gx = 0; gx < NX; gx++) for (let gz = 0; gz < NZ; gz++) for (let gy = 0; gy < NY; gy++)
+      dens[(gx * NZ + gz) * NY + gy] = fn(bx + gx * 4, gy * 8, bz + gz * 4);
+    for (let gx = 0; gx < 4; gx++) for (let gz = 0; gz < 4; gz++) for (let gy = 0; gy < 16; gy++) {
+      const i = (gx * NZ + gz) * NY + gy;
+      const d000 = dens[i], d001 = dens[i + NY], d100 = dens[i + NZ * NY], d101 = dens[i + NZ * NY + NY];
+      const d010 = dens[i + 1], d011 = dens[i + NY + 1], d110 = dens[i + NZ * NY + 1], d111 = dens[i + NZ * NY + NY + 1];
+      for (let ly = 0; ly < 8; ly++) {
+        const ty = ly / 8, y = gy * 8 + ly;
+        const e00 = d000 + (d010 - d000) * ty, e01 = d001 + (d011 - d001) * ty, e10 = d100 + (d110 - d100) * ty, e11 = d101 + (d111 - d101) * ty;
+        for (let lx = 0; lx < 4; lx++) {
+          const tx = lx / 4, f0 = e00 + (e10 - e00) * tx, f1 = e01 + (e11 - e01) * tx;
+          for (let lz = 0; lz < 4; lz++) place(gx * 4 + lx, y, gz * 4 + lz, f0 + (f1 - f0) * (lz / 4));
+        }
+      }
+    }
+  };
+
+  Generator.prototype.genNether = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    this.densityFill(cx, cz, (x, y, z) => {
+      const n = this.d1.sample(x / 70, y / 38, z / 70) * 3 + this.d2.sample(x / 22, y / 14, z / 22) * 1.2;
+      return n + Math.max(0, (28 - y) / 7) + Math.max(0, (y - 98) / 7) - 0.3;
+    }, (x, y, z, v) => {
+      const i = (y << 8) | (z << 4) | x;
+      if (v > 0) blocks[i] = B.netherrack; else if (y <= 31) blocks[i] = B.lava;
+    });
+    const rng = this.rng;
+    rng.setSeed(hash2(this.seed ^ 0x4e7, cx, cz));
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const wx = cx * 16 + x, wz = cz * 16 + z;
+      const soul = this.d3.sample2(wx / 40, wz / 40) * 3 > 0.25;
+      const grav = this.d4.sample2(wz / 30, wx / 30) * 3 > 0.45;
+      for (let y = 0; y < CH; y++) {
+        const i = (y << 8) | (z << 4) | x;
+        if ((y < 5 && y <= rng.nextInt(5)) || (y > 122 && y >= 127 - rng.nextInt(5))) { blocks[i] = B.bedrock; continue; }
+        if (blocks[i] === B.netherrack && y > 30 && y < 72 && blocks[i + 256] === 0) {
+          if (soul) { for (let k = 0; k < 3 && y - k > 0; k++) if (blocks[i - k * 256] === B.netherrack) blocks[i - k * 256] = B.soul_sand; }
+          else if (grav && y < 40) { for (let k = 0; k < 2; k++) if (blocks[i - k * 256] === B.netherrack) blocks[i - k * 256] = B.gravel; }
+        }
+      }
+    }
+    return { blocks, meta, biomes };
+  };
+
+  Generator.prototype.genEnd = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const wx = cx * 16 + x, wz = cz * 16 + z;
+      const r = Math.hypot(wx, wz);
+      let top = -1, bot = 0;
+      if (r < 100) {
+        const t = 1 - r / 100;
+        top = 56 + t * 8 + this.d2.sample2(wx / 30, wz / 30) * 6;
+        bot = 56 - Math.sqrt(t) * 36 - this.d3.sample2(wx / 20, wz / 20) * 10;
+      } else if (r > 300) {
+        const n = this.d1.sample2(wx / 150, wz / 150) * 3.2 + this.d4.sample2(wx / 40, wz / 40) * 0.8 - 0.5;
+        if (n > 0) { top = 58 + Math.min(n, 1) * 8 + this.d2.sample2(wx / 25, wz / 25) * 3; bot = top - Math.min(n, 1.4) * 26 - 2; biomes[(z << 4) | x] = 1; }
+      }
+      for (let y = Math.max(1, Math.floor(bot)); y <= top && y < CH; y++) blocks[(y << 8) | (z << 4) | x] = B.end_stone;
+    }
+    return { blocks, meta, biomes };
+  };
+
+  Generator.prototype.genAether = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    this.densityFill(cx, cz, (x, y, z) => {
+      const n = this.d1.sample(x / 90, y / 40, z / 90) * 3 + this.d2.sample(x / 28, y / 18, z / 28) * 0.9;
+      const b = (y - 74) / 30;
+      return n - 0.35 - b * b * 1.6;
+    }, (x, y, z, v) => { if (v > 0 && y > 20 && y < 120) blocks[(y << 8) | (z << 4) | x] = B.holystone; });
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      let run = -1;
+      for (let y = CH - 1; y >= 0; y--) {
+        const i = (y << 8) | (z << 4) | x;
+        if (blocks[i] === 0) { run = -1; continue; }
+        if (run === -1) { blocks[i] = B.aether_grass; run = 3; }
+        else if (run > 0) { blocks[i] = B.aether_dirt; run--; }
+      }
+    }
+    return { blocks, meta, biomes };
+  };
+
+  /** Top solid y per column (terrain only, used to place structures). */
+  Generator.prototype.heightMap = function (cx, cz) {
+    const r = this.generate(cx, cz, true);
+    const h = new Uint8Array(256), top = new Uint8Array(256);
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      let y = CH - 1;
+      while (y > 0 && (r.blocks[(y << 8) | (z << 4) | x] === 0 || r.blocks[(y << 8) | (z << 4) | x] === B.water || r.blocks[(y << 8) | (z << 4) | x] === B.lava)) y--;
+      h[(z << 4) | x] = y;
+      let w = CH - 1;
+      while (w > 0 && r.blocks[(w << 8) | (z << 4) | x] === 0) w--;
+      top[(z << 4) | x] = w;
+    }
+    return { h, top, biomes: r.biomes };
   };
 
   /* Worm caves (after the classic cave carver) */
@@ -647,6 +866,8 @@ function DL_SHARED_FACTORY() {
             case R.DOOR: this.door(i, id, x, y, z); break;
             case R.CROPS: this.crops(i, id, x, y, z); break;
             case R.FIRE: this.fire(i, id, x, y, z); break;
+            case R.SHAPE: { const bx = shapeBoxes(id, this.me[i]); for (const b of bx) this.box(i, id, x, y, z, b[0], b[1], b[2], b[3], b[4], b[5]); break; }
+            case R.PORTAL: if (this.me[i] & 1) this.box(i, id, x, y, z, 6, 0, 0, 10, 16, 16); else this.box(i, id, x, y, z, 0, 0, 6, 16, 16, 10); break;
           }
         }
       }
@@ -720,7 +941,7 @@ function DL_SHARED_FACTORY() {
         (f === 3 && z1 === 16) || (f === 4 && x0 === 0) || (f === 5 && x1 === 16);
       const ni = i + DOFF[f];
       if (onEdge && !noCull && opq[bl[ni]]) continue;
-      if (onEdge && !noCull && bl[ni] === id && (RENDER[id] === R.SNOW)) continue;
+      if (onEdge && !noCull && bl[ni] === id && (RENDER[id] === R.SNOW || RENDER[id] === R.PORTAL || RENDER[id] === R.SHAPE)) continue;
       const lv = onEdge ? li[ni] : li[i];
       const tile = texOverride !== undefined ? (typeof texOverride === 'number' ? texOverride : texOverride[f]) : tileFor(id, f, meta, above);
       this.quadBox(out, f, x, y, z, mn, mx, tile, lv >> 4, lv & 15, FACE_SHADE[f], 0);
@@ -875,7 +1096,7 @@ function DL_SHARED_FACTORY() {
     else this.box(i, id, x, y, z, 8, 8, 0, 16, 16, 16);
   };
 
-  function fenceConnects(n) { return n === B.fence || (OPAQUE[n] && SOLID[n]); }
+  function fenceConnects(n) { return n === B.fence || n === B.nether_brick_fence || (OPAQUE[n] && SOLID[n]); }
   S.fenceConnects = fenceConnects;
 
   Mesher.prototype.fence = function (i, id, x, y, z) {
@@ -996,7 +1217,7 @@ function DL_WORKER_MAIN(S) {
   self.onmessage = function (e) {
     const m = e.data;
     if (m.t === 'init') {
-      gen = new S.Generator(m.seed);
+      gen = new S.Generator(m.seed, m.dim);
     } else if (m.t === 'gen') {
       const r = gen.generate(m.cx, m.cz);
       self.postMessage({ t: 'gen', cx: m.cx, cz: m.cz, blocks: r.blocks, meta: r.meta, biomes: r.biomes, seed: m.seed },

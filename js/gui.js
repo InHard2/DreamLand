@@ -1092,7 +1092,7 @@
   class CreativeScreen extends ContainerScreen {
     constructor(game) {
       super(game);
-      this.items = I().defs.filter(Boolean);
+      this.items = I().defs.filter(d => d && !d.hidden);
       this.rows = 5; this.scroll = 0;
       this.pw = 196; this.ph = 150;
     }

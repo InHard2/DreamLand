@@ -708,6 +708,9 @@
     }
   })();
 
+  Tex.G = G;
+  Tex.helpers = { mix, mul, jitter, valueNoise, voronoiStones, ore, metalBlock, smoothStone, woodBox };
+
   /* ---------------------------------------------------------------- */
   /* Animated textures (cellular automata)                            */
   /* ---------------------------------------------------------------- */
@@ -970,6 +973,8 @@
     boots: ['................', '................', '................', '................', '................', '...oooo..oooo...', '...olmo..olmo...', '...olmo..olmo...', '..oolmo..olmoo..', '..olmmo..olmmo..', '..oooooo.oooooo.']
   };
 
+  Tex.ITEM_ART = ITEM_ART;
+  Tex.MAT = MAT;
   // Item atlas slot assignment
   const ITEM_TILES = {};
   let nextItemTile = 0;
@@ -1024,7 +1029,7 @@
         for (let c = 0; c < 4; c++) iimg.data[d + c] = t.d[s + c];
       }
     };
-    for (const mat of ['wood', 'stone', 'iron', 'gold', 'diamond']) {
+    for (const mat of ['wood', 'stone', 'iron', 'gold', 'diamond'].concat(Tex.extraToolMats || [])) {
       for (const tool of ['pickaxe', 'axe', 'shovel', 'sword', 'hoe']) {
         const t = new Tile(mat + tool); t.clear(); t.art(ART[tool], toolPal(mat)); put(mat + '_' + tool, t);
       }

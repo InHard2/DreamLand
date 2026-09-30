@@ -19,10 +19,10 @@ void main(){
   const TERRAIN_FS = `
 precision mediump float;
 uniform sampler2D uTex;
-uniform float uSkySub, uAlphaTest, uGamma, uFogDensity, uFogMode;
+uniform float uSkySub, uAlphaTest, uGamma, uFogDensity, uFogMode, uAmb;
 uniform vec3 uFogColor; uniform vec2 uFog; uniform vec3 uLightOv; uniform vec4 uTint;
 varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag;
-float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*0.95+0.05; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
+float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*(0.95-uAmb)+0.05+uAmb; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
 void main(){
   vec4 t = texture2D(uTex, vUV);
   if (t.a < uAlphaTest) discard;
@@ -46,10 +46,10 @@ void main(){
 }`;
   const ENTITY_FS = `
 precision mediump float;
-uniform sampler2D uTex; uniform vec2 uLight; uniform float uSkySub, uGamma, uFogDensity, uFogMode;
+uniform sampler2D uTex; uniform vec2 uLight; uniform float uSkySub, uGamma, uFogDensity, uFogMode, uAmb;
 uniform vec3 uFogColor; uniform vec2 uFog; uniform vec4 uTint; uniform float uAlpha;
 varying vec2 vUV; varying float vShade, vDist;
-float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*0.95+0.05; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
+float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*(0.95-uAmb)+0.05+uAmb; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
 void main(){
   vec4 t = texture2D(uTex, vUV);
   if (t.a < 0.1) discard;
@@ -159,7 +159,7 @@ void main(){
     this.skinTex = {};
     for (const k in DL.Models.skins) this.skinTex[k] = this.texture(DL.Models.skins[k]);
     this.modelMeshes = {};
-    for (const k of ['pig', 'cow', 'sheep', 'chicken', 'zombie', 'player', 'skeleton', 'creeper', 'spider', 'armor1', 'armor2']) {
+    for (const k of ['pig', 'cow', 'sheep', 'chicken', 'zombie', 'player', 'skeleton', 'creeper', 'spider', 'armor1', 'armor2'].concat(DL.Models.newModels || [])) {
       const m = DL.Models.buildMesh(k);
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -385,6 +385,7 @@ void main(){
     gl.uniform2f(sh.u.uFog, this.fogStart, this.fogEnd);
     gl.uniform1f(sh.u.uFogMode, this.fogMode);
     gl.uniform1f(sh.u.uFogDensity, this.fogDensity);
+    gl.uniform1f(sh.u.uAmb, this.ambient || 0);
     gl.uniform3f(sh.u.uLightOv, 0, 0, 0);
     gl.uniform4f(sh.u.uTint, 0, 0, 0, 0);
     gl.activeTexture(gl.TEXTURE0);
@@ -691,6 +692,7 @@ void main(){
     gl.uniform2f(sh.u.uFog, this.fogStart, this.fogEnd);
     gl.uniform1f(sh.u.uFogMode, this.fogMode);
     gl.uniform1f(sh.u.uFogDensity, this.fogDensity);
+    gl.uniform1f(sh.u.uAmb, this.ambient || 0);
     gl.uniform4f(sh.u.uTint, 0, 0, 0, 0);
     gl.uniform1f(sh.u.uAlpha, 1);
     gl.uniform1i(sh.u.uTex, 0);
@@ -892,6 +894,20 @@ void main(){
         e.renderPitch = e.isPlayer ? lerp(e.ppitch, e.pitch, pt) * -1 : -(e.pitch || 0);
         this.entityModelMatrix(e, pt, m);
         let type = e.type;
+        const def = e.def;
+        let skin = null;
+        if (def) {
+          type = def.model || type;
+          skin = def.skinFor ? def.skinFor(e) : def.skin || null;
+          const sc = e.scale || def.scale || 1;
+          if (sc !== 1 || e.squish) {
+            const sq = e.squish || 0;
+            M4.translate(m, m, 0, -24 / 16, 0);
+            M4.scale(m, m, sc * (1 - sq * 0.25), sc * (1 + sq * 0.5), sc * (1 - sq * 0.25));
+            M4.translate(m, m, 0, 24 / 16, 0);
+          }
+          if (def.boss && e.deathTime > 0) { this.entityModelMatrix({ px: e.px, py: e.py, pz: e.pz, x: e.x, y: e.y, z: e.z, pbodyYaw: e.pbodyYaw, bodyYaw: e.bodyYaw, deathTime: 0 }, pt, m); M4.translate(m, m, 0, -24 / 16, 0); M4.scale(m, m, sc, sc, sc); M4.translate(m, m, 0, 24 / 16, 0); }
+        }
         if (type === 'creeper' && e.fuse > 0) {
           let f = (e.prevFuse + (e.fuse - e.prevFuse) * pt) / 28;
           f = Math.max(0, Math.min(1, f));
@@ -900,12 +916,15 @@ void main(){
           M4.scale(m, m, (1 + f2 * 0.4) * s1, (1 + f2 * 0.1) / s1, (1 + f2 * 0.4) * s1);
         }
         if (e.type === 'player') e.heldItem = !!e.held;
-        this.drawModel(type, e, pt, m, light);
+        const lit = def && (def.fireImmune && (e.type === 'blaze' || e.type === 'magma_cube') || e.type === 'end_crystal' || e.type === 'ender_dragon' && world.dim === 2) ? [15, 15] : light;
+        this.drawModel(type, e, pt, m, lit, skin ? { skin } : null);
+        if (def && def.held) this.drawHeldThirdPerson(e, pt, m, lit, { id: def.held, count: 1 }, type);
+        if (e.type === 'end_crystal' || (e.type === 'ender_dragon' && e.healer)) this.crystalBeams = true;
         if (e.type === 'player') this.drawArmor(e, pt, m, light);
         if (e.type === 'player' && e.held) this.drawHeldThirdPerson(e, pt, m, light, e.held, 'player');
         if (e.type === 'skeleton') this.drawHeldThirdPerson(e, pt, m, light, { id: 261, count: 1 }, 'skeleton');
         const mesh = this.modelMeshes[type];
-        if (mesh && e.deathTime <= 0) shadows.push([ex, ey, ez, mesh.shadow, 1]);
+        if (mesh && e.deathTime <= 0 && !(def && def.fly && e.type !== 'blaze')) shadows.push([ex, ey, ez, mesh.shadow * (e.scale || (def && def.scale) || 1), 1]);
         if (e.fire > 0) this.billboards.push({ fire: true, x: ex, y: ey, z: ez, w: e.w, h: e.h });
       } else if (e.type === 'item') {
         this.drawDroppedItem(e, pt, ex, ey, ez, light);
@@ -923,7 +942,7 @@ void main(){
       } else if (e.type === 'arrow') {
         this.drawArrow(e, pt, ex, ey, ez, light);
       } else if (e.type === 'thrown') {
-        this.billboards.push({ item: e.kind === 'egg' ? 344 : 332, x: ex, y: ey, z: ez, size: 0.25, light });
+        this.billboards.push({ item: e.icon || (e.kind === 'egg' ? 344 : 332), x: ex, y: ey, z: ez, size: e.size || 0.25, light: e.icon === 385 || e.icon === 381 ? [15, 15] : light });
       }
     }
     this.renderShadows(world, shadows);

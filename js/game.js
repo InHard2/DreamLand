@@ -148,12 +148,16 @@
       ls.status = isNew ? 'Building terrain' : 'Loading chunks';
       this.setScreen(ls);
       this.loadingScreen = ls;
-      const keys = isNew ? [] : await DL.Storage.chunkKeys(slot);
+      const dim = meta.dim || 0;
+      const wslot = DL.dimSlot(slot, dim);
+      const keys = isNew ? [] : await DL.Storage.chunkKeys(wslot);
       const st = this.settings;
       const world = new DL.World({
-        seed: meta.seed, slot, name: meta.name, time: meta.time || 0, renderDist: G.RENDER_DISTS[st.renderDist].v,
+        seed: meta.seed, slot: wslot, dim, name: meta.name, time: meta.time || 0, renderDist: G.RENDER_DISTS[st.renderDist].v,
         fancy: st.fancy, smooth: st.smooth, difficulty: st.difficulty, savedKeys: new Set(keys)
       });
+      world.baseSlot = slot;
+      if (dim === 2 && DL.Structures) DL.Structures.endFountain(world);
       this.world = world;
       this.meta = meta;
       this.hookWorld(world);
@@ -163,7 +167,7 @@
       world.entities.push(p);
       p.creative = !!meta.creative;
       world.timeFrozen = !!meta.timeFrozen;
-      if (meta.player) p.restore(meta.player);
+      if (meta.player) { p.restore(meta.player); if (meta.player.dimSpawn) p.spawnPoint = meta.player.dimSpawn; }
       else {
         const sp = meta.spawn || this.findSpawn(world);
         meta.spawn = sp;
@@ -312,7 +316,8 @@
       m.player = this.player.serialize();
       m.size = w.savedKeys.size * 16 * 1024;
       m.lastPlayed = Date.now();
-      return Promise.all([w.saveAll(), DL.Storage.putWorld(w.slot, m)]);
+      m.dim = w.dim || 0;
+      return Promise.all([w.saveAll(), DL.Storage.putWorld(m.slot, m)]);
     }
 
     async quitToTitle() {
@@ -516,7 +521,21 @@
       const p = this.player, w = this.world;
       const msg = (m) => this.chatMessage(m);
       switch (cmd) {
-        case 'help': msg('§eCommands: /time set <day|night|n>, /give <item> [n], /tp x y z, /seed, /kill, /heal, /summon <mob>, /difficulty <n>, /clear, /spawnpoint, /items'); break;
+        case 'help': msg('§eCommands: /time set <day|night|n>, /give <item> [n], /tp x y z, /seed, /kill, /heal, /summon <mob>, /difficulty <n>, /clear, /spawnpoint, /items, /gamemode, /dimension <overworld|nether|end|aether>, /locate <structure>'); break;
+        case 'dimension': case 'dim': {
+          const names = { overworld: 0, nether: 1, end: 2, the_end: 2, aether: 3 };
+          const d = names[(args[0] || '').toLowerCase()];
+          if (d === undefined) { msg('§cUsage: /dimension <overworld|nether|end|aether>'); break; }
+          this.travel(d, { type: 'command' });
+          break;
+        }
+        case 'locate': {
+          const n = (args[0] || '').toLowerCase().replace(/^minecraft:/, '');
+          const res = DL.Structures && DL.Structures.locate(w, n, p.x, p.z);
+          if (!res) { msg('§cNo ' + n + ' found nearby. Try: ' + DL.Structures.TYPES.filter(t => t.dim === (w.dim || 0)).map(t => t.name).concat(w.dim ? [] : ['stronghold']).join(', ')); break; }
+          msg('The nearest ' + n + ' is at ' + Math.round(res[0]) + ', ' + Math.round(res[2]) + ' (' + Math.round(res[3]) + ' blocks away)');
+          break;
+        }
         case 'time': {
           if (args[0] === 'set') { const v = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }[args[1]]; const t = v !== undefined ? v : parseInt(args[1], 10); if (!isNaN(t)) { w.time = Math.floor(w.time / 24000) * 24000 + t; msg('Set the time to ' + t); } }
           else if (args[0] === 'add') { w.time += parseInt(args[1], 10) || 0; msg('Added time'); }
@@ -842,6 +861,7 @@
       // entity interaction
       if (t && t.entity) {
         const e = t.entity;
+        if (e.def && e.def.interact && e.def.interact(e, p, this)) { p.swing(); return; }
         if (e.type === 'cow' && held && held.id === 325) { p.held = I.stack(335); p.swing(); A.play('pop', e.x, e.y, e.z, 0.5, 1); return; }
         return;
       }
@@ -1104,6 +1124,8 @@
           case 'bubble': p = { tex: 'particle', cellX: 0, cellY: 1, frame: 0, vx: (Math.random() * 2 - 1) * 0.02, vy: Math.random() * 0.03, vz: (Math.random() * 2 - 1) * 0.02, gravity: 0, drag: 0.85, life: Math.floor(8 / (Math.random() * 0.8 + 0.2)), size: 0.1 + Math.random() * 0.05, r: 1, g: 1, b: 1 }; break;
           case 'splash': p = { tex: 'particle', cellX: 1 + Math.floor(Math.random() * 3), cellY: 1, frame: 0, vx: (Math.random() * 2 - 1) * 0.1, vy: Math.random() * 0.2 + 0.1, vz: (Math.random() * 2 - 1) * 0.1, gravity: 0.04, drag: 0.98, life: Math.floor(8 / (Math.random() * 0.8 + 0.2)), size: 0.1, r: 1, g: 1, b: 1, collide: true }; break;
           case 'lava': p = { tex: 'particle', cellX: 1, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.08, vy: Math.random() * 0.2 + 0.05, vz: (Math.random() - 0.5) * 0.08, gravity: 0.03, drag: 0.999, life: Math.floor(16 / (Math.random() * 0.8 + 0.2)), size: 0.1 + Math.random() * 0.05, r: 1, g: 1, b: 1, fullBright: true, collide: true }; break;
+          case 'portal': { const f = Math.random() * 0.6 + 0.4; p = { tex: 'particle', cellX: 0, cellY: 0, anim: true, vx: (Math.random() - 0.5) * 0.08, vy: (Math.random() - 0.3) * 0.08, vz: (Math.random() - 0.5) * 0.08, gravity: 0, drag: 0.92, life: 20 + Math.floor(Math.random() * 20), size: 0.07 + Math.random() * 0.05, r: f * 0.9, g: f * 0.3, b: f, fullBright: true }; break; }
+          case 'heart': case 'happy': p = { tex: 'particle', cellX: 2, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.05, vy: 0.05 + Math.random() * 0.05, vz: (Math.random() - 0.5) * 0.05, gravity: 0, drag: 0.9, life: 20, size: 0.12, r: type === 'heart' ? 1 : 0.4, g: type === 'heart' ? 0.3 : 1, b: 0.4, fullBright: true }; break;
           case 'crit': p = { tex: 'particle', cellX: 2, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.3, vy: Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.3, gravity: 0.02, drag: 0.7, life: 8, size: 0.08, r: 1, g: 1, b: 1 }; break;
           case 'itemcrack': case 'egg': case 'snowball': {
             const d = I.get(itemId || (type === 'egg' ? 344 : 332));
@@ -1221,7 +1243,10 @@
       r.fogStart = far * 0.3; r.fogEnd = far * 0.95; r.fogMode = 0; r.fogDensity = 0;
       if (underwater) { r.fogMode = 1; r.fogDensity = 0.08; r.fogColor = [0.02 + r.fogColor[0] * 0.05, 0.02 + r.fogColor[1] * 0.1, 0.2 * Math.max(0.3, 1 - r.skySub / 11)]; }
       if (inLava) { r.fogMode = 1; r.fogDensity = 2; r.fogColor = [0.6, 0.1, 0]; }
-      if (p.y < 16) { const f = Math.max(0, p.y / 16); r.fogColor = r.fogColor.map(c => c * (0.2 + 0.8 * f)); }
+      if (p.y < 16 && !w.dim) { const f = Math.max(0, p.y / 16); r.fogColor = r.fogColor.map(c => c * (0.2 + 0.8 * f)); }
+      r.ambient = w.dim === 1 ? 0.12 : w.dim === 2 ? 0.08 : 0;
+      if (w.dim === 1 && !inLava) { r.fogStart = Math.min(r.fogStart, 6); r.fogEnd = Math.min(r.fogEnd, 88); }
+      if (w.dim === 2 && !underwater) { r.fogStart = Math.max(r.fogStart, far * 0.6); }
       gl.clearColor(r.fogColor[0], r.fogColor[1], r.fogColor[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       // camera effects

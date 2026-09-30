@@ -319,6 +319,7 @@
   const smelt = {};
   smelt[B.iron_ore] = 265; smelt[B.gold_ore] = 266; smelt[B.sand] = B.glass; smelt[B.cobblestone] = B.stone;
   smelt[337] = 336; smelt[319] = 320; smelt[349] = 350; smelt[B.diamond_ore] = 264; smelt[B.log] = 263; smelt[B.clay] = B.bricks;
+  I._def = def; I._shaped = shaped; I._shapeless = shapeless; I._smelt = smelt; I._titleCase = titleCase;
   I.smeltResult = id => smelt[id] ? I.stack(smelt[id]) : null;
   I.fuelTime = id => (defs[id] && defs[id].fuel) || 0;
 

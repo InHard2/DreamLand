@@ -1,10 +1,11 @@
 /* DreamLand service worker: offline cache for the app shell. */
-const CACHE = 'dreamland-v1';
+const CACHE = 'dreamland-v2';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './js/shared.js', './js/math.js', './js/textures.js', './js/font.js', './js/items.js', './js/storage.js',
   './js/world.js', './js/models.js', './js/entities.js', './js/renderer.js', './js/audio.js', './js/input.js',
-  './js/gui.js', './js/game.js',
+  './js/gui.js', './js/game.js', './js/textures2.js', './js/items2.js', './js/structures.js', './js/models2.js',
+  './js/mobs2.js', './js/dims.js',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'
 ];
 

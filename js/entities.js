@@ -1027,6 +1027,8 @@
       if (type === 'sheep') this.sheared = false;
       if (type === 'chicken') this.eggTime = 6000 + Math.floor(Math.random() * 6000);
       if (type === 'creeper') { this.fuse = 0; this.prevFuse = 0; this.fuseDir = -1; }
+      this.fireImmune = !!d.fireImmune;
+      if (d.init) d.init(this);
     }
     tick() {
       this.baseTick();
@@ -1040,7 +1042,8 @@
         }
         return;
       }
-      this.aiTick();
+      if (this.def.ai) this.def.ai(this); else this.aiTick();
+      if (this.def.fly) { this.flyTravel(); this.updateBodyYaw(); this.headYaw = this.lookYaw !== undefined ? this.lookYaw : this.yaw; if (this.def.tick) this.def.tick(this); this.despawnCheck(); return; }
       if (this.jumping) {
         if (this.inWater || this.inLava) this.vy += 0.04;
         else if (this.onGround) this.vy = 0.42;
@@ -1055,7 +1058,7 @@
         if (this.world.fx) this.world.fx.sound(this.def.sound, this.x, this.y + this.h, this.z, 1, (Math.random() - Math.random()) * 0.2 + 1);
       }
       // sunlight burn
-      if (this.def.burns && this.world.isDaytime() && !this.inWater) {
+      if (this.def.burns && this.world.dim === 0 && this.world.isDaytime() && !this.inWater) {
         const bx = Math.floor(this.x), by = Math.floor(this.y + this.eye), bz = Math.floor(this.z);
         const bright = this.world.getSky(bx, by, bz) - this.world.skySubtracted();
         if (bright > 12 && Math.random() * 30 < (bright - 12) * 2) this.fire = 300;
@@ -1066,6 +1069,7 @@
         if (this.world.fx) this.world.fx.sound('pop', this.x, this.y, this.z, 1, (Math.random() - Math.random()) * 0.2 + 1);
       }
       if (this.type === 'creeper') this.creeperFuse();
+      if (this.def.tick) this.def.tick(this);
       if (this.eatTimer > 0) {
         this.eatTimer--;
         if (this.eatTimer === 4 && this.type === 'sheep') {
@@ -1105,7 +1109,9 @@
     }
     findTarget() {
       const p = this.world.player;
+      if (this.def.findTarget) return this.def.findTarget(this);
       if (!p || p.health <= 0 || p.creative || this.world.difficulty === 0) return null;
+      if (this.def.neutral && !this.provoked) return null;
       if (this.type === 'spider') {
         const bright = this.world.getLightLevel(Math.floor(this.x), Math.floor(this.y + 0.5), Math.floor(this.z));
         if (bright > 8 && !this.provoked) return null;
@@ -1118,8 +1124,8 @@
       this.moveForward = 0; this.moveStrafe = 0; this.jumping = false;
       this.idle++;
       const w = this.world;
-      if (this.hostile) {
-        if (this.target && (this.target.health <= 0 || this.distTo(this.target) > 24)) this.target = null;
+      if (this.hostile || this.def.neutral || this.def.findTarget) {
+        if (this.target && (this.target.health <= 0 || this.target.removed || this.distTo(this.target) > 24)) this.target = null;
         if (!this.target || this.age % 20 === 0) { const t = this.findTarget(); if (t) this.target = t; else if (this.type === 'spider' && this.target && !this.provoked) this.target = null; }
       }
       if (this.panic > 0) this.panic--;
@@ -1146,6 +1152,7 @@
           else { this.lookTarget = null; if (!this.path) this.yaw += (Math.random() - 0.5) * 1.2; }
         }
         if (this.type === 'sheep' && !this.path && this.eatTimer <= 0 && Math.random() < (this.sheared ? 0.01 : 0.002)) this.eatTimer = 40;
+        if (this.def.idle) this.def.idle(this);
       }
       this.followPath();
       if (this.inWater || this.inLava) { if (Math.random() < 0.8) this.jumping = true; }
@@ -1169,7 +1176,8 @@
         if (!w.isReady(x, z)) continue;
         let score;
         if (this.hostile) score = 0.5 - w.getLightLevel(x, y, z) / 15;
-        else score = w.getBlock(x, y - 1, z) === B.grass ? 10 : w.getLightLevel(x, y, z) / 15 - 0.5;
+        else score = (w.getBlock(x, y - 1, z) === B.grass || w.getBlock(x, y - 1, z) === B.aether_grass) ? 10 : w.getLightLevel(x, y, z) / 15 - 0.5;
+        if (this.home) score -= Math.hypot(x - this.home[0], z - this.home[2]) > 24 ? 20 : 0;
         if (score > bestScore) { bestScore = score; best = [x, y, z]; }
       }
       if (best) {
@@ -1198,7 +1206,8 @@
     attackBehaviour(t, d, see) {
       const w = this.world;
       if (this.attackTime > 0) this.attackTime--;
-      if (this.type === 'zombie' || (this.type === 'spider')) {
+      if (this.def.attackFn) { this.def.attackFn(this, t, d, see); return; }
+      if (this.type === 'zombie' || (this.type === 'spider') || (this.def.attack && !this.def.ranged && this.type !== 'creeper')) {
         if (this.type === 'spider' && d > 2 && d < 6 && this.onGround && Math.random() < 0.1) {
           const dx = t.x - this.x, dz = t.z - this.z, l = Math.hypot(dx, dz) || 1;
           this.vx = dx / l * 0.4 + this.vx * 0.2; this.vz = dz / l * 0.4 + this.vz * 0.2; this.vy = 0.4;
@@ -1207,16 +1216,18 @@
         if (d < reach + 0.5 && this.attackTime <= 0 && Math.abs(t.y - this.y) < 1.5 && see) {
           this.attackTime = 20;
           this.swing();
-          t.damage('mob', scaleDamage(this.def.attack, w.difficulty), this);
+          t.damage('mob', t.isPlayer ? scaleDamage(this.def.attack, w.difficulty) : this.def.attack, this);
+          if (this.def.onHit) this.def.onHit(this, t);
         }
         if (d < 1.2) { this.faceTowards(t.x, t.z, 0.6); this.moveForward = 1; }
-      } else if (this.type === 'skeleton') {
+      } else if (this.def.ranged === true) {
         this.aiming = see && d < 12;
         if (see && d < 10) {
           this.faceTowards(t.x, t.z, 0.8);
           if (this.attackTime <= 0) {
             this.attackTime = 30 + Math.floor(Math.random() * 20);
             const a = new Arrow(w, this.x, this.y + this.eye - 0.1, this.z, this);
+            if (this.def.fireArrows) a.fire = 100;
             const dx = t.x - this.x, dz = t.z - this.z;
             const dy = (t.y + t.h * 0.66) - (this.y + this.eye - 0.1);
             const dist = Math.hypot(dx, dz);
@@ -1242,8 +1253,9 @@
       }
     }
     onHurt(src, from) {
-      if (!this.hostile) { this.panic = 60; this.path = null; }
-      if (from && from.isPlayer && this.hostile) { this.target = from; this.provoked = true; }
+      if (!this.hostile && !this.def.neutral) { this.panic = 60; this.path = null; }
+      if (from && from.living && from !== this && (this.hostile || this.def.neutral) && (from.isPlayer ? !from.creative : true)) { this.target = from; this.provoked = true; }
+      if (this.def.onHurt) this.def.onHurt(this, src, from);
       if (this.world.fx) this.world.fx.sound(this.def.sound ? this.def.sound + 'hurt' : 'hurtmob', this.x, this.y + this.h, this.z, 1, (Math.random() - Math.random()) * 0.2 + 1);
       if (this.type === 'sheep' && !this.sheared && from && from.isPlayer) {
         this.sheared = true;
@@ -1265,11 +1277,14 @@
         case 'skeleton': drop(262, 2); drop(352, 2); break;
         case 'creeper': drop(289, 2); break;
         case 'spider': drop(287, 2); break;
+        default: if (this.def.drops) for (const [id, max, chance] of this.def.drops) { if (chance === undefined || Math.random() < chance) drop(id, max); }
       }
+      if (this.def.onDeath) this.def.onDeath(this, killer);
     }
     serialize() {
       if (!this.persistent || this.health <= 0) return null;
-      return { type: this.type, x: this.x, y: this.y, z: this.z, health: this.health, yaw: this.yaw, sheared: this.sheared };
+      if (this.def.noSave) return null;
+      return { type: this.type, x: this.x, y: this.y, z: this.z, health: this.health, yaw: this.yaw, sheared: this.sheared, v: this.variant, home: this.home, tamed: this.tamed };
     }
   }
   E.Mob = Mob;
@@ -1286,6 +1301,9 @@
       if (extra.health !== undefined) m.health = extra.health;
       if (extra.yaw !== undefined) m.yaw = m.bodyYaw = extra.yaw;
       if (extra.sheared) m.sheared = true;
+      if (extra.v !== undefined) { m.variant = extra.v; if (m.def.onVariant) m.def.onVariant(m); }
+      if (extra.home) m.home = extra.home;
+      if (extra.tamed) m.tamed = extra.tamed;
     }
     world.entities.push(m);
     return m;

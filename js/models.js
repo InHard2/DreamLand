@@ -127,7 +127,9 @@
     if (mdl.layout) return mdl.layout;
     const items = [];
     for (const pn in mdl.parts) mdl.parts[pn].boxes.forEach((b, i) => items.push({ pn, i, w: 2 * (b[5] + b[3]), h: b[5] + b[4] }));
-    const W = Math.max(64, ...items.map(it => it.w <= 64 ? 64 : 128));
+    let W = 64;
+    const maxW = Math.max(...items.map(it => it.w));
+    while (W < maxW) W *= 2;
     items.sort((a, b) => b.h - a.h || b.w - a.w);
     let x = 0, y = 0, rowH = 0;
     const uv = {};
@@ -218,6 +220,7 @@
 
   const SKINS = {};
   M.skins = SKINS;
+  M.Skin = Skin; M.hex = hex; M.shade = shade; M.anims = {}; M.skinPainters = {};
 
   /* ---------------- Player ("Dreamer") ---------------- */
   function paintPlayer() {
@@ -606,6 +609,7 @@
       SKINS['armor1_' + mat] = paintArmor(1, mat);
       SKINS['armor2_' + mat] = paintArmor(2, mat);
     }
+    for (const k in M.skinPainters) { try { SKINS[k] = M.skinPainters[k](); } catch (e) { console.warn('skin', k, e); } }
   };
 
   /* ------------------------------------------------------------ */
@@ -661,6 +665,7 @@
     const o = {};
     const q = (a) => Math.cos(limb * 0.6662 + a) * 1.4 * amt;
     const swing = e.swingTicks >= 0 && e.swingTicks !== undefined ? Math.min(1, (e.swingTicks + pt) / 6) : (e.swingProgress || 0);
+    if (M.anims[anim]) return M.anims[anim]({ name, e, pt, limb, amt, headYaw, headPitch, age, q, swing, o });
     if (anim === 'quad') {
       o.head = [headPitch, headYaw, 0];
       if (name === 'sheep' && e.eatTimer > 0) {

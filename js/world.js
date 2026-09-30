@@ -13,7 +13,7 @@
   /* ---------------------------------------------------------------- */
   /* Worker pool                                                      */
   /* ---------------------------------------------------------------- */
-  function WorkerPool(seed, onMessage) {
+  function WorkerPool(seed, dim, onMessage) {
     this.workers = [];
     this.busy = [];
     this.onMessage = onMessage;
@@ -30,7 +30,7 @@
         const idx = i;
         w.onmessage = (e) => { this.busy[idx]--; this.onMessage(e.data); };
         w.onerror = (e) => { console.error('worker error', e.message || e); };
-        w.postMessage({ t: 'init', seed });
+        w.postMessage({ t: 'init', seed, dim });
         this.workers.push(w);
         this.busy.push(0);
       }
@@ -39,7 +39,7 @@
       this.workers = [];
     }
     if (!this.workers.length) {
-      this.fallbackGen = new S.Generator(seed);
+      this.fallbackGen = new S.Generator(seed, dim);
       this.fallbackMesher = new S.Mesher();
       this.fallbackQueue = [];
     }
@@ -49,6 +49,7 @@
   };
   WorkerPool.prototype.capacity = function () { return Math.max(2, this.workers.length * 3); };
   WorkerPool.prototype.submit = function (msg, transfer) {
+    if (this.dead) return;
     if (!this.workers.length) {
       this.fallbackQueue.push(msg);
       return;
@@ -59,7 +60,7 @@
     this.workers[best].postMessage(msg, transfer || []);
   };
   WorkerPool.prototype.pumpFallback = function (budgetMs) {
-    if (this.workers.length) return;
+    if (this.workers.length || this.dead) return;
     const t0 = performance.now();
     while (this.fallbackQueue.length && performance.now() - t0 < budgetMs) {
       const m = this.fallbackQueue.shift();
@@ -72,7 +73,7 @@
       }
     }
   };
-  WorkerPool.prototype.terminate = function () { for (const w of this.workers) w.terminate(); this.workers = []; };
+  WorkerPool.prototype.terminate = function () { for (const w of this.workers) w.terminate(); this.workers = []; this.dead = true; };
 
   /* ---------------------------------------------------------------- */
   /* Chunk                                                            */
@@ -124,7 +125,8 @@
     this.fancy = opts.fancy !== false;
     this.smooth = opts.smooth !== false;
     this.difficulty = opts.difficulty === undefined ? 2 : opts.difficulty;
-    this.gen = new S.Generator(this.seed);
+    this.dim = opts.dim || 0;
+    this.gen = new S.Generator(this.seed, this.dim);
     this.rng = new S.RNG(this.seed ^ 0x55aa);
     this.popRng = new S.RNG(0);
     this.entities = [];
@@ -145,7 +147,7 @@
     this.lq = new IntQueue(1 << 16);
     this.rq = new IntQueue(1 << 16);
     this.stats = { genMs: 0, lightMs: 0, meshJobs: 0, chunkUpdates: 0 };
-    this.pool = new WorkerPool(this.seed, (m) => {
+    this.pool = new WorkerPool(this.seed, this.dim, (m) => {
       if (m.t === 'gen') this.genResults.push(m);
       else if (m.t === 'mesh') this.meshResults.push(m);
     });
@@ -219,6 +221,8 @@
     return f1 + (f - f1) / 3;
   };
   World.prototype.skySubtracted = function (partial) {
+    if (this.dim === 1) return 0;
+    if (this.dim === 2) return 3;
     const a = this.celestialAngle(partial);
     let f = 1 - (Math.cos(a * Math.PI * 2) * 2 + 0.5);
     f = f < 0 ? 0 : f > 1 ? 1 : f;
@@ -566,6 +570,7 @@
     }
     this.chunks.set(k, c);
     this._lc = null;
+    if (!m.saved && DL.Structures) DL.Structures.apply(this, c);
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
       const n = this.getChunk(c.cx + dx, c.cz + dz);
       if (n) this.checkQueue.add(n);
@@ -742,6 +747,7 @@
   World.prototype.populate = function (c) {
     c.populated = true;
     c.needsSave = true;
+    if (this.dim && this.populateDim) { this.populateDim(c); return; }
     const r = this.popRng;
     r.setSeed(S.hash2(this.seed ^ 0x1b873593, c.cx, c.cz));
     const bx = c.cx * 16, bz = c.cz * 16;
@@ -820,7 +826,8 @@
     this.setBlockRaw(x, y, z, id, meta);
   };
 
-  World.prototype.genMinable = function (r, x, y, z, size, id) {
+  World.prototype.genMinable = function (r, x, y, z, size, id, host) {
+    host = host || B.stone;
     const a = r.next() * Math.PI;
     const x0 = x + 8 + Math.sin(a) * size / 8, x1 = x + 8 - Math.sin(a) * size / 8;
     const z0 = z + 8 + Math.cos(a) * size / 8, z1 = z + 8 - Math.cos(a) * size / 8;
@@ -838,7 +845,7 @@
           if (dx * dx + dy * dy >= 1) continue;
           for (let bz = Math.floor(cz - rh / 2); bz <= Math.floor(cz + rh / 2); bz++) {
             const dz = (bz + 0.5 - cz) / (rh / 2);
-            if (dx * dx + dy * dy + dz * dz < 1 && this.getBlock(bx, by, bz) === B.stone) this.popSet(bx, by, bz, id, 0);
+            if (dx * dx + dy * dy + dz * dz < 1 && this.getBlock(bx, by, bz) === host) this.popSet(bx, by, bz, id, 0);
           }
         }
       }
