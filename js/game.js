@@ -639,7 +639,7 @@
       let dx = In.mouse.dx * k, dy = In.mouse.dy * k;
       In.mouse.dx = In.mouse.dy = 0;
       const T = In.touch;
-      const ts = (0.3 + st.touchSens * 1.4) * 0.006 * (G.dpr || 1);
+      const ts = (0.3 + st.touchSens * 1.4) * 0.0045;
       dx += T.lookDX * ts; dy += T.lookDY * ts;
       T.lookDX = T.lookDY = 0;
       const ps = (0.6 + st.padSens * 3.2) * dt;
@@ -1150,10 +1150,9 @@
       } else {
         r.renderMenuBackground(G.scale * r.w / G.canvas.width, 0);
         if (scr instanceof G.TitleScreen) {
-          const lw = Math.min(G.W - 20, 280) * G.scale * r.w / G.canvas.width;
-          const lh = lw * 0.28;
-          const cx = r.w / 2;
-          r.renderLogo(Math.round(cx - lw / 2), Math.round(22 * G.scale * r.w / G.canvas.width), Math.round(lw), Math.round(lh), now);
+          const k = G.scale * r.w / G.canvas.width;
+          const L = scr.logoRect();
+          r.renderLogo(Math.round(L.x * k), Math.round(L.y * k), Math.round(L.w * k), Math.round(L.h * k), now);
         }
       }
       // GUI

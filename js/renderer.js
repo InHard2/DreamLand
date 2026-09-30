@@ -35,10 +35,15 @@ void main(){
   gl_FragColor = vec4(mix(uFogColor, c, fog), t.a);
 }`;
   const ENTITY_VS = `
-attribute vec3 aPos; attribute vec2 aUV; attribute float aShade;
+attribute vec3 aPos; attribute vec2 aUV; attribute vec3 aNormal;
 uniform mat4 uProj, uView, uModel;
 varying vec2 vUV; varying float vShade, vDist;
-void main(){ vec4 vp = uView * uModel * vec4(aPos, 1.0); gl_Position = uProj * vp; vDist = length(vp.xyz); vUV = aUV; vShade = aShade; }`;
+void main(){
+  vec4 vp = uView * uModel * vec4(aPos, 1.0); gl_Position = uProj * vp; vDist = length(vp.xyz); vUV = aUV;
+  vec3 n = normalize((uModel * vec4(aNormal, 0.0)).xyz);
+  vec3 l0 = normalize(vec3(0.2, 1.0, -0.7)), l1 = normalize(vec3(-0.2, 1.0, 0.7));
+  vShade = min(1.0, 0.4 + 0.6 * (max(dot(n, l0), 0.0) + max(dot(n, l1), 0.0)));
+}`;
   const ENTITY_FS = `
 precision mediump float;
 uniform sampler2D uTex; uniform vec2 uLight; uniform float uSkySub, uGamma, uFogDensity, uFogMode;
@@ -125,7 +130,7 @@ void main(){
   Renderer.prototype.initGL = function () {
     const gl = this.gl;
     this.terrainShader = this.compile(TERRAIN_VS, TERRAIN_FS, ['aPos', 'aUV', 'aLight']);
-    this.entityShader = this.compile(ENTITY_VS, ENTITY_FS, ['aPos', 'aUV', 'aShade']);
+    this.entityShader = this.compile(ENTITY_VS, ENTITY_FS, ['aPos', 'aUV', 'aNormal']);
     this.basicShader = this.compile(BASIC_VS, BASIC_FS, ['aPos', 'aUV', 'aColor']);
     // quad index buffer (16384 quads, uint16)
     const idx = new Uint16Array(16384 * 6);
@@ -154,14 +159,15 @@ void main(){
     this.skinTex = {};
     for (const k in DL.Models.skins) this.skinTex[k] = this.texture(DL.Models.skins[k]);
     this.modelMeshes = {};
-    for (const k of ['pig', 'cow', 'sheep', 'chicken', 'zombie', 'player', 'skeleton', 'creeper', 'spider']) {
+    for (const k of ['pig', 'cow', 'sheep', 'chicken', 'zombie', 'player', 'skeleton', 'creeper', 'spider', 'armor1', 'armor2']) {
       const m = DL.Models.buildMesh(k);
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, m.data, gl.STATIC_DRAW);
-      this.modelMeshes[k] = { buf, parts: m.parts };
+      this.modelMeshes[k] = { buf, parts: m.parts, noCull: m.noCull, shadow: m.shadow };
     }
     this.buildParticleAtlas();
+    this.buildShadowTex();
     this.buildCelestial();
     this.buildStars();
     this.clouds = DL.Tex.buildClouds();
@@ -650,26 +656,26 @@ void main(){
     const v = [];
     const depth = 1 / 16;
     const U = (x) => tu + x / 256, V = (y) => tv + y / 256;
-    const quad = (p, uv, shade) => { for (const k of [0, 1, 2, 0, 2, 3]) v.push(p[k][0], p[k][1], p[k][2], uv[k][0], uv[k][1], shade); };
+    const quad = (p, uv, n) => { for (const k of [0, 1, 2, 0, 2, 3]) v.push(p[k][0], p[k][1], p[k][2], uv[k][0], uv[k][1], n[0], n[1], n[2]); };
     // front/back full quads (x: 0..1 left->right, y: 1..0 top->bottom)
-    quad([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], [[U(0), V(16)], [U(16), V(16)], [U(16), V(0)], [U(0), V(0)]], 1);
-    quad([[1, 0, -depth], [0, 0, -depth], [0, 1, -depth], [1, 1, -depth]], [[U(16), V(16)], [U(0), V(16)], [U(0), V(0)], [U(16), V(0)]], 0.8);
+    quad([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], [[U(0), V(16)], [U(16), V(16)], [U(16), V(0)], [U(0), V(0)]], [0, 0, 1]);
+    quad([[1, 0, -depth], [0, 0, -depth], [0, 1, -depth], [1, 1, -depth]], [[U(16), V(16)], [U(0), V(16)], [U(0), V(0)], [U(16), V(0)]], [0, 0, -1]);
     const a = (x, y) => x >= 0 && y >= 0 && x < 16 && y < 16 && px[(y * 16 + x) * 4 + 3] > 20;
     const e = 0.001;
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
       if (!a(x, y)) continue;
       const x0 = x / 16, x1 = (x + 1) / 16, y0 = 1 - (y + 1) / 16, y1 = 1 - y / 16;
       const uv = [[U(x + e), V(y + 1 - e)], [U(x + 1 - e), V(y + 1 - e)], [U(x + 1 - e), V(y + e)], [U(x + e), V(y + e)]];
-      if (!a(x - 1, y)) quad([[x0, y0, -depth], [x0, y0, 0], [x0, y1, 0], [x0, y1, -depth]], uv, 0.6);
-      if (!a(x + 1, y)) quad([[x1, y0, 0], [x1, y0, -depth], [x1, y1, -depth], [x1, y1, 0]], uv, 0.6);
-      if (!a(x, y - 1)) quad([[x0, y1, 0], [x1, y1, 0], [x1, y1, -depth], [x0, y1, -depth]], uv, 1);
-      if (!a(x, y + 1)) quad([[x0, y0, -depth], [x1, y0, -depth], [x1, y0, 0], [x0, y0, 0]], uv, 0.5);
+      if (!a(x - 1, y)) quad([[x0, y0, -depth], [x0, y0, 0], [x0, y1, 0], [x0, y1, -depth]], uv, [-1, 0, 0]);
+      if (!a(x + 1, y)) quad([[x1, y0, 0], [x1, y0, -depth], [x1, y1, -depth], [x1, y1, 0]], uv, [1, 0, 0]);
+      if (!a(x, y - 1)) quad([[x0, y1, 0], [x1, y1, 0], [x1, y1, -depth], [x0, y1, -depth]], uv, [0, 1, 0]);
+      if (!a(x, y + 1)) quad([[x0, y0, -depth], [x1, y0, -depth], [x1, y0, 0], [x0, y0, 0]], uv, [0, -1, 0]);
     }
     const gl = this.gl;
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
-    m = { buf, n: v.length / 6, tex: terrain ? this.terrainTex : this.itemsTex };
+    m = { buf, n: v.length / 8, tex: terrain ? this.terrainTex : this.itemsTex };
     this.itemMeshCache.set(key, m);
     return m;
   };
@@ -696,12 +702,10 @@ void main(){
   Renderer.prototype.bindEntityBuffer = function (buf) {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 12);
-    gl.disableVertexAttribArray(2);
-    gl.vertexAttrib1f(2, 1);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 12);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 24, 20);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 32, 20);
   };
 
   Renderer.prototype.drawItemMesh = function (stack, model, light, tint) {
@@ -743,11 +747,11 @@ void main(){
 
   Renderer.prototype.drawModel = function (type, e, pt, model, light, opts) {
     const gl = this.gl;
-    const skinKey = type;
+    opts = opts || {};
     const mesh = this.modelMeshes[type];
     if (!mesh) return;
     const sh = this.useEntityShader();
-    gl.bindTexture(gl.TEXTURE_2D, this.skinTex[skinKey]);
+    gl.bindTexture(gl.TEXTURE_2D, this.skinTex[opts.skin || type]);
     this.bindEntityBuffer(mesh.buf);
     gl.uniform2f(sh.u.uLight, light[0], light[1]);
     let tint = [0, 0, 0, 0];
@@ -756,38 +760,96 @@ void main(){
       const f = (e.prevFuse + (e.fuse - e.prevFuse) * pt) / 28;
       if (Math.floor(f * 10) % 2 === 1) tint = [1, 1, 1, Math.min(0.8, f * 0.8)];
     }
-    if (opts && opts.tint) tint = opts.tint;
+    if (opts.tint) tint = opts.tint;
     gl.uniform4fv(sh.u.uTint, tint);
-    const pose = (opts && opts.pose) || DL.Models.pose(type === 'player' ? 'player' : type, e, pt);
+    const pose = opts.pose || DL.Models.pose(opts.poseAs || type, e, pt);
+    if (mesh.noCull) gl.disable(gl.CULL_FACE);
     const pm = M4.create();
     for (const pn in mesh.parts) {
       const part = mesh.parts[pn];
       if (part.wool && e.sheared) continue;
-      if (opts && opts.only && opts.only.indexOf(pn) < 0) continue;
-      const r = pose[pn] || [0, 0, 0];
+      if (opts.only && opts.only.indexOf(pn) < 0) continue;
+      const r = pose[pn] || pose[part.follow] || [0, 0, 0];
       const pv = part.pivot;
+      const px = pv[0] + (r[3] || 0), py = pv[1] + (r[4] || 0), pz = pv[2] + (r[5] || 0);
       M4.copy(pm, model);
-      if (opts && opts.raw) {
-        // classic model space (y down, no flip): T(pivot) Rz Ry Rx S(1/16) then undo the mesh's local flip
-        M4.translate(pm, pm, pv[0] / 16, pv[1] / 16, pv[2] / 16);
+      if (opts.raw) {
+        // classic model space (y down, no flip): T(pivot) Rz Ry Rx S(1/16), undoing the mesh's local flip
+        M4.translate(pm, pm, px / 16, py / 16, pz / 16);
         if (r[2]) M4.rotateZ(pm, pm, r[2]);
         if (r[1]) M4.rotateY(pm, pm, r[1]);
         if (r[0]) M4.rotateX(pm, pm, r[0]);
         M4.scale(pm, pm, -1 / 16, -1 / 16, 1 / 16);
-        gl.uniformMatrix4fv(sh.u.uModel, false, pm);
-        gl.drawArrays(gl.TRIANGLES, part.start, part.count);
-        continue;
+      } else {
+        // local (x,y flipped) space: rotations about x and y are negated
+        M4.translate(pm, pm, -px / 16, -py / 16, pz / 16);
+        if (r[2]) M4.rotateZ(pm, pm, r[2]);
+        if (r[1]) M4.rotateY(pm, pm, -r[1]);
+        if (r[0]) M4.rotateX(pm, pm, -r[0]);
+        M4.scale(pm, pm, 1 / 16, 1 / 16, 1 / 16);
       }
-      // local: flip x and y of pivot
-      M4.translate(pm, pm, -pv[0] / 16, -pv[1] / 16, pv[2] / 16);
-      // rotations in flipped space: rx -> -rx? (flip of x & y => rotation about x negated, y negated, z unchanged)
-      if (r[2]) M4.rotateZ(pm, pm, r[2]);
-      if (r[1]) M4.rotateY(pm, pm, -r[1]);
-      if (r[0]) M4.rotateX(pm, pm, -r[0]);
-      M4.scale(pm, pm, 1 / 16, 1 / 16, 1 / 16);
       gl.uniformMatrix4fv(sh.u.uModel, false, pm);
       gl.drawArrays(gl.TRIANGLES, part.start, part.count);
     }
+    if (mesh.noCull) gl.enable(gl.CULL_FACE);
+  };
+
+  /** Armor layers worn by the player. */
+  const ARMOR_BASE = { 298: 'leather', 306: 'iron', 310: 'diamond', 314: 'gold' };
+  function armorMat(id) { for (const b in ARMOR_BASE) if (id >= +b && id < +b + 4) return ARMOR_BASE[b]; return null; }
+  Renderer.prototype.drawArmor = function (p, pt, m, light) {
+    if (!p.armor) return;
+    const pose = DL.Models.pose('player', p, pt);
+    const slots = [[0, 'armor1', ['head']], [1, 'armor1', ['body', 'rarm', 'larm']], [2, 'armor2', ['body', 'rleg', 'lleg']], [3, 'armor1', ['rleg', 'lleg']]];
+    for (const [i, model, parts] of slots) {
+      const s = p.armor[i];
+      const mat = s && armorMat(s.id);
+      if (!mat) continue;
+      this.drawModel(model, p, pt, m, light, { skin: model + '_' + mat, only: parts, pose });
+    }
+  };
+
+  Renderer.prototype.buildShadowTex = function () {
+    const c = DL.Tex.makeCanvas(32, 32), ctx = c.getContext('2d');
+    const img = ctx.createImageData(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const d = Math.hypot(x - 15.5, y - 15.5);
+      img.data[(y * 32 + x) * 4 + 3] = Math.max(0, Math.min(1, (16 - d) / 4)) * 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    this.shadowTex = this.texture(c);
+  };
+  /** Classic blob shadows projected onto the block tops beneath entities. */
+  Renderer.prototype.renderShadows = function (world, list) {
+    if (!list.length) return;
+    const gl = this.gl, cam = this.cam;
+    M4.multiply(this.mvp, this.proj, this.view);
+    this.begin();
+    for (const [ex, ey, ez, r, op] of list) {
+      const x0 = Math.floor(ex - r), x1 = Math.floor(ex + r), z0 = Math.floor(ez - r), z1 = Math.floor(ez + r);
+      const y1 = Math.floor(ey), y0 = Math.floor(ey - 2);
+      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) {
+        const b = world.getBlock(x, y - 1, z);
+        if (!b || !S.OPAQUE[b] || S.OPAQUE[world.getBlock(x, y, z)]) continue;
+        const L = Math.max(world.getSky(x, y, z) - this.skySub, world.getBlockLight(x, y, z));
+        let a = (op - (ey - y) / 2) * 0.5 * (0.3 + 0.7 * L / 15);
+        if (a <= 0) continue;
+        a = Math.min(1, a);
+        const u0 = (x - ex) / 2 / r + 0.5, u1 = (x + 1 - ex) / 2 / r + 0.5, v0 = (z - ez) / 2 / r + 0.5, v1 = (z + 1 - ez) / 2 / r + 0.5;
+        const yy = y + 0.015 - cam.y;
+        this.quadV([[x - cam.x, yy, z - cam.z], [x - cam.x, yy, z + 1 - cam.z], [x + 1 - cam.x, yy, z + 1 - cam.z], [x + 1 - cam.x, yy, z - cam.z]],
+          [[u0, v0], [u0, v1], [u1, v1], [u1, v0]], [1, 1, 1, a]);
+      }
+    }
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -2);
+    gl.disable(gl.CULL_FACE);
+    this.flush('quads', { tex: this.shadowTex, fog: true });
+    gl.enable(gl.CULL_FACE);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
   };
 
   Renderer.prototype.entityModelMatrix = function (e, pt, out) {
@@ -803,7 +865,7 @@ void main(){
       M4.rotateZ(out, out, -f * Math.PI / 2);
     }
     // model origin: feet at y=24 in model space -> local y = (24 - my)/16
-    M4.translate(out, out, 0, 24 / 16, 0);
+    M4.translate(out, out, 0, 24 / 16 - (e.sneaking ? 0.125 : 0), 0);
     return by;
   };
 
@@ -814,6 +876,7 @@ void main(){
     const m = M4.create();
     const maxD2 = (world.renderDist * 16) ** 2;
     this.billboards = [];
+    const shadows = [];
     for (const e of world.entities) {
       if (e.removed) continue;
       if (e === game.player && !game.thirdPerson) continue;
@@ -838,10 +901,15 @@ void main(){
         }
         if (e.type === 'player') e.heldItem = !!e.held;
         this.drawModel(type, e, pt, m, light);
-        if (e.type === 'player' && e.held) this.drawHeldThirdPerson(e, pt, m, light);
+        if (e.type === 'player') this.drawArmor(e, pt, m, light);
+        if (e.type === 'player' && e.held) this.drawHeldThirdPerson(e, pt, m, light, e.held, 'player');
+        if (e.type === 'skeleton') this.drawHeldThirdPerson(e, pt, m, light, { id: 261, count: 1 }, 'skeleton');
+        const mesh = this.modelMeshes[type];
+        if (mesh && e.deathTime <= 0) shadows.push([ex, ey, ez, mesh.shadow, 1]);
         if (e.fire > 0) this.billboards.push({ fire: true, x: ex, y: ey, z: ez, w: e.w, h: e.h });
       } else if (e.type === 'item') {
         this.drawDroppedItem(e, pt, ex, ey, ez, light);
+        shadows.push([ex, ey, ez, 0.15, 0.75]);
       } else if (e.type === 'tnt' || e.type === 'falling') {
         M4.identity(m);
         M4.translate(m, m, ex - cam.x - 0.5, ey - cam.y, ez - cam.z - 0.5);
@@ -858,6 +926,7 @@ void main(){
         this.billboards.push({ item: e.kind === 'egg' ? 344 : 332, x: ex, y: ey, z: ez, size: 0.25, light });
       }
     }
+    this.renderShadows(world, shadows);
     // collect animations
     for (const c of game.collectAnims) {
       const t = Math.min(1, (c.t + pt) / 3);
@@ -931,21 +1000,27 @@ void main(){
       this.drawItemMesh(stack, m, light);
     }
   };
-  Renderer.prototype.drawHeldThirdPerson = function (p, pt, model, light) {
+  Renderer.prototype.drawHeldThirdPerson = function (p, pt, model, light, stack, poseAs) {
     const m = M4.create();
     M4.copy(m, model);
     // back into classic model space (blocks, y down)
     M4.translate(m, m, 0, -1.5, 0);
     M4.scale(m, m, -1, -1, 1);
     M4.translate(m, m, 0, -1.5, 0);
-    const pose = DL.Models.pose('player', p, pt);
+    const pose = DL.Models.pose(poseAs || 'player', p, pt);
     const ra = pose.rarm;
-    M4.translate(m, m, -5 / 16, 2 / 16, 0);
+    M4.translate(m, m, (-5 + (ra[3] || 0)) / 16, (2 + (ra[4] || 0)) / 16, (ra[5] || 0) / 16);
     M4.rotateZ(m, m, ra[2]); M4.rotateY(m, m, ra[1]); M4.rotateX(m, m, ra[0]);
     M4.translate(m, m, -0.0625, 0.4375, 0.0625);
-    const d = DL.Items.get(p.held.id);
+    const d = DL.Items.get(stack.id);
     const deg = Math.PI / 180;
-    if (d.isBlock && !d.flat) {
+    if (d.id === 261) {
+      const k = 0.625;
+      M4.translate(m, m, 0, 0.125, 0.3125);
+      M4.rotateY(m, m, -20 * deg);
+      M4.scale(m, m, k, -k, k);
+      M4.rotateX(m, m, -100 * deg); M4.rotateY(m, m, 45 * deg);
+    } else if (d.isBlock && !d.flat) {
       const k = 0.5 * 0.75;
       M4.translate(m, m, 0, 0.1875, -0.3125);
       M4.rotateX(m, m, 20 * deg); M4.rotateY(m, m, 45 * deg);
@@ -961,7 +1036,7 @@ void main(){
       M4.scale(m, m, k, k, k);
       M4.rotateZ(m, m, 60 * deg); M4.rotateX(m, m, -90 * deg); M4.rotateZ(m, m, 20 * deg);
     }
-    this.drawItemClassic(p.held, m, light);
+    this.drawItemClassic(stack, m, light);
   };
 
   /* ---------------------------------------------------------------- */

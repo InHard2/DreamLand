@@ -1047,7 +1047,13 @@
         if (this.world.fx) this.world.fx.sound('pop', this.x, this.y, this.z, 1, (Math.random() - Math.random()) * 0.2 + 1);
       }
       if (this.type === 'creeper') this.creeperFuse();
-      if (this.eatTimer > 0) this.eatTimer--;
+      if (this.eatTimer > 0) {
+        this.eatTimer--;
+        if (this.eatTimer === 4 && this.type === 'sheep') {
+          const bx = Math.floor(this.x), by = Math.floor(this.y) - 1, bz = Math.floor(this.z);
+          if (this.world.getBlock(bx, by, bz) === B.grass) { this.world.setBlock(bx, by, bz, B.dirt, 0); this.sheared = false; }
+        }
+      }
       this.despawnCheck();
     }
     despawnCheck() {
@@ -1120,7 +1126,7 @@
           if (p && this.distTo(p) < 8 && Math.random() < 0.5) this.lookTarget = p;
           else { this.lookTarget = null; if (!this.path) this.yaw += (Math.random() - 0.5) * 1.2; }
         }
-        if (this.type === 'sheep' && !this.path && Math.random() < 0.002) this.eatTimer = 40;
+        if (this.type === 'sheep' && !this.path && this.eatTimer <= 0 && Math.random() < (this.sheared ? 0.01 : 0.002)) this.eatTimer = 40;
       }
       this.followPath();
       if (this.inWater || this.inLava) { if (Math.random() < 0.8) this.jumping = true; }

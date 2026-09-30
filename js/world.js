@@ -672,7 +672,7 @@
       list.push([s, dx * dx + dz * dz]);
     }
     list.sort((a, b) => a[1] - b[1]);
-    const cap = this.pool.capacity() * 2;
+    const cap = Math.max(8, this.pool.workers.length * 10);
     let inflight = this._jobs.size;
     for (const [s] of list) {
       if (inflight >= cap || performance.now() - t0 > budgetMs) break;
@@ -1295,7 +1295,7 @@
       else cost[d] = this.flowCost(nx, y, nz, 1, d, id);
     }
     const min = Math.min(...cost);
-    return cost.map(c => c === min && c < 1000);
+    return cost.map(c => c === min);
   };
   World.prototype.checkHarden = function (x, y, z) {
     if (this.getBlock(x, y, z) !== B.lava) return;

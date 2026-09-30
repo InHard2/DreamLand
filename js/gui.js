@@ -300,15 +300,22 @@
         { enabled: !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen) && !DL.Input.isIOS });
       if (this.focus < 0 && DL.Input.lastDevice === 'gamepad') this.focus = 0;
     }
+    logoRect() {
+      const top = 6 + G.safe.t;
+      const avail = G.H / 4 + 48 - 6 - top;
+      const w = Math.min(G.W - 20, 300, avail / 0.3);
+      const h = w * 0.3;
+      return { x: G.W / 2 - w / 2, y: top, w, h };
+    }
     draw(mx, my) {
       const ctx = G.ctx;
-      // splash
-      const lw = Math.min(G.W - 20, 280);
+      // splash (bottom-right corner of the logo)
+      const L = this.logoRect();
       ctx.save();
-      ctx.translate(G.W / 2 + lw * 0.42, 30 + 40);
+      ctx.translate(L.x + L.w * 0.86, L.y + L.h * 0.78);
       ctx.rotate(-20 * Math.PI / 180);
       let s = 1.8 - Math.abs(Math.sin((performance.now() % 1000) / 1000 * Math.PI * 2) * 0.1);
-      s = s * 100 / (F.width(this.splash) + 32);
+      s = s * 100 / (F.width(this.splash) + 32) * Math.min(1, L.w / 260);
       ctx.scale(s, s);
       F.drawCentered(ctx, this.splash, 0, -8, '#FFFF00');
       ctx.restore();
