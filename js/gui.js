@@ -993,7 +993,7 @@
       G.rect(bx, by, 52, 72, '#000');
       this.preview = [bx + 1, by + 1, 50, 70];
       G.ctx.clearRect(bx + 1, by + 1, 50, 70);
-      this.previewLook = [(bx + 26 - mx) / 30, (by + 20 - my) / 30];
+      this.previewLook = [(mx - bx - 26) / 30, (my - by - 20) / 30];
       G.ctx.drawImage(DL.Tex.gui.arrow, this.px + 116, this.py + 36, 16, 12);
       this.drawLabel('Crafting', 86, 16);
     }
