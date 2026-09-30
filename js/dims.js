@@ -290,7 +290,7 @@
       world.player = p;
       world.entities.push(p);
       p.setPos(tx, dim === 2 ? 50 : 100, tz);
-      p.vx = p.vy = p.vz = 0; p.fallDistance = 0; p.portalTime = 0; p.portalCooldown = 200; p.gliding = false;
+      p.vx = p.vy = p.vz = 0; p.fallDistance = 0; p.portalTime = 0; p.portalLock = true; p.gliding = false;
       p.levitation = 0;
       this.loading = { t0: performance.now(), isNew: false, phase: 0 };
       this.pendingArrival = arrival;
@@ -398,35 +398,45 @@
     tick.call(this);
     if (this.world !== w || !this.inGame || this._traveling) return;
     if (G.screen && G.screen.pauses) return;
-    if (p.portalCooldown > 0) p.portalCooldown--;
     if (p.health > 0) {
-      const bx = Math.floor(p.x), bz = Math.floor(p.z);
+      // any portal block touching the player's body counts
       let inP = 0, meta = 0;
-      for (const yy of [Math.floor(p.y + 0.1), Math.floor(p.y + 1)]) {
-        const id = w.getBlock(bx, yy, bz);
-        if (id === B.nether_portal || id === B.aether_portal || id === B.end_portal) { inP = id; meta = w.getMeta(bx, yy, bz); }
-      }
+      const bb = p.box;
+      for (let x = Math.floor(bb[0] + 0.05); x <= Math.floor(bb[3] - 0.05) && !inP; x++)
+        for (let z = Math.floor(bb[2] + 0.05); z <= Math.floor(bb[5] - 0.05) && !inP; z++)
+          for (let y = Math.floor(bb[1]); y <= Math.floor(bb[4] - 0.05) && !inP; y++) {
+            const id = w.getBlock(x, y, z);
+            if (id === B.nether_portal || id === B.aether_portal || id === B.end_portal) { inP = id; meta = w.getMeta(x, y, z); }
+          }
+      // after arriving, step out of the portal before it can take you back
+      if (!inP) p.portalLock = false;
+      const ready = !p.portalLock;
       if (inP === B.end_portal) {
-        if (meta & 1) {
+        if (!ready) { /* just arrived */ }
+        else if (meta & 1) {
           // End gateway: hop to the outer islands and back
           const out = Math.hypot(p.x, p.z) < 300;
-          p.portalCooldown = 60;
+          p.portalLock = true;
           if (out) { p.setPos(0.5, 100, 1000.5); p.pendingGateway = [0, 1000]; }
           else p.setPos(0.5, (w.endFountainY || 64) + 16, 88.5);
           p.vx = p.vy = p.vz = 0; p.fallDistance = 0;
           A.play('teleport', null, null, null, 1, 1);
-        } else if (p.portalCooldown <= 0) {
+        } else {
+          p.portalTime = 0;
           this.travel(w.dim === 2 ? 0 : 2, { type: 'end' });
           return;
         }
       } else if (inP) {
-        p.portalTime = (p.portalTime || 0) + 1;
-        if (p.portalTime === 1) A.play('portal', null, null, null, 0.4, 1);
-        if (p.portalTime >= (p.creative ? 2 : 80) && p.portalCooldown <= 0) {
-          p.portalTime = 0;
-          if (inP === B.nether_portal) this.travel(w.dim === 1 ? 0 : 1, { type: 'nether' });
-          else this.travel(w.dim === 3 ? 0 : 3, { type: 'aether' });
-          return;
+        if (!ready) p.portalTime = 0;
+        else {
+          p.portalTime = (p.portalTime || 0) + 1;
+          if (p.portalTime === 1) A.play('portal', null, null, null, 0.4, 1);
+          if (p.portalTime >= (p.creative ? 2 : 80)) {
+            p.portalTime = 0;
+            if (inP === B.nether_portal) this.travel(w.dim === 1 ? 0 : 1, { type: 'nether' });
+            else this.travel(w.dim === 3 ? 0 : 3, { type: 'aether' });
+            return;
+          }
         }
       } else if (p.portalTime > 0) p.portalTime = Math.max(0, p.portalTime - 4);
     }

@@ -1193,6 +1193,7 @@ void main(){
   /* Selection, cracks                                                */
   /* ---------------------------------------------------------------- */
   Renderer.prototype.renderSelection = function (box) {
+    if (!box) return;
     const gl = this.gl, cam = this.cam;
     M4.multiply(this.mvp, this.proj, this.view);
     const e = 0.002;
