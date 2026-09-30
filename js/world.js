@@ -1556,7 +1556,7 @@
   /* World tick                                                       */
   /* ---------------------------------------------------------------- */
   World.prototype.tick = function (pcx, pcz) {
-    this.time++;
+    if (!this.timeFrozen) this.time++;
     this.totalTicks++;
     if (this.pendingTicks) {
       for (const [x, y, z] of this.pendingTicks) this.schedule(x, y, z, 5);

@@ -490,6 +490,22 @@
       }
       return Math.round(pts);
     }
+    damage(src, amount, from) {
+      if (this.creative && src !== 'void') return false;
+      return super.damage(src, amount, from);
+    }
+    fly(str, fwd) {
+      this.fallDistance = 0;
+      this.moveRelative(str, fwd, this.sprintFly ? 0.35 : 0.22);
+      if (this.jumping) this.vy = 0.42;
+      else if (this.sneaking) this.vy = -0.42;
+      else this.vy *= 0.5;
+      this.move(this.vx, this.vy, this.vz);
+      this.vx *= 0.55; this.vz *= 0.55;
+      if (this.onGround && this.sneaking) this.flying = false;
+      this.prevLimbAmount = this.limbSwingAmount;
+      this.limbSwingAmount *= 0.6;
+    }
     applyDamage(a, src) {
       if (src !== 'drown' && src !== 'fire' && src !== 'fall' && src !== 'void' && src !== 'suffocate') {
         const armor = this.armorValue();
@@ -534,7 +550,8 @@
         else if (this.onGround && this.jumpCooldown <= 0) { this.vy = 0.42; this.jumpCooldown = 10; }
       } else this.jumpCooldown = 0;
       if (this.jumpCooldown > 0) this.jumpCooldown--;
-      this.travel(str * 0.98, fwd * 0.98);
+      if (this.flying) this.fly(str, fwd);
+      else this.travel(str * 0.98, fwd * 0.98);
       // view bob
       this.pbob = this.bob; this.pcameraTilt = this.cameraTilt;
       let hs = Math.hypot(this.x - this.px, this.z - this.pz);
@@ -623,6 +640,7 @@
       if (s.count <= 0) this.held = null;
     }
     damageHeld(n) {
+      if (this.creative) return;
       const s = this.held;
       if (!s) return;
       const d = I().get(s.id);
@@ -649,7 +667,7 @@
     }
     serialize() {
       return {
-        x: this.x, y: this.y, z: this.z, yaw: this.yaw, pitch: this.pitch, health: this.health, air: this.air,
+        x: this.x, y: this.y, z: this.z, yaw: this.yaw, pitch: this.pitch, health: this.health, air: this.air, flying: !!this.flying,
         inv: this.inv, armor: this.armor, selected: this.selected, score: this.score, spawn: this.spawnPoint, fire: this.fire
       };
     }
@@ -660,6 +678,7 @@
       this.armor = (d.armor || []).concat(new Array(4).fill(null)).slice(0, 4);
       this.selected = d.selected || 0; this.score = d.score || 0; this.spawnPoint = d.spawn || null;
       this.fire = d.fire || 0;
+      this.flying = !!d.flying;
       if (this.health <= 0) this.health = 20;
     }
   }
@@ -1086,7 +1105,7 @@
     }
     findTarget() {
       const p = this.world.player;
-      if (!p || p.health <= 0 || this.world.difficulty === 0) return null;
+      if (!p || p.health <= 0 || p.creative || this.world.difficulty === 0) return null;
       if (this.type === 'spider') {
         const bright = this.world.getLightLevel(Math.floor(this.x), Math.floor(this.y + 0.5), Math.floor(this.z));
         if (bright > 8 && !this.provoked) return null;

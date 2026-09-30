@@ -386,8 +386,10 @@
       this.name.onEnter = () => this.create();
       this.seed.onEnter = () => this.create();
       this.widgets.push(this.name, this.seed);
-      this.btn('Create New World', cx - 100, y + 96, 200, 20, () => this.create());
-      this.btn('Cancel', cx - 100, y + 120, 200, 20, () => this.back());
+      const modeLabel = () => 'Game Mode: ' + (this.creative ? 'Creative' : 'Survival');
+      const mb = this.btn(modeLabel(), cx - 100, y + 78, 200, 20, () => { this.creative = !this.creative; mb.label = modeLabel(); });
+      this.btn('Create New World', cx - 100, y + 108, 200, 20, () => this.create());
+      this.btn('Cancel', cx - 100, y + 132, 200, 20, () => this.back());
       if (this.focus < 0 && DL.Input.lastDevice === 'gamepad') this.focus = 2;
     }
     create() {
@@ -397,7 +399,7 @@
       if (!s) seed = (Math.random() * 0x7fffffff) | 0;
       else if (/^-?\d+$/.test(s)) seed = parseInt(s, 10) | 0;
       else { seed = 0; for (let i = 0; i < s.length; i++) seed = (Math.imul(31, seed) + s.charCodeAt(i)) | 0; }
-      this.game.createWorld(this.slot, this.name.value.trim() || 'World ' + this.slot, seed);
+      this.game.createWorld(this.slot, this.name.value.trim() || 'World ' + this.slot, seed, !!this.creative);
     }
     draw(mx, my) {
       const cx = G.W / 2, y = G.H / 4;
@@ -1085,6 +1087,100 @@
   G.FurnaceScreen = FurnaceScreen;
 
   /* ------------------------------------------------------------ */
+  /* Creative inventory                                           */
+  /* ------------------------------------------------------------ */
+  class CreativeScreen extends ContainerScreen {
+    constructor(game) {
+      super(game);
+      this.items = I().defs.filter(Boolean);
+      this.rows = 5; this.scroll = 0;
+      this.pw = 196; this.ph = 150;
+    }
+    get maxScroll() { return Math.max(0, Math.ceil(this.items.length / 9) - this.rows); }
+    layout() {
+      super.layout();
+      this.py = Math.max(4 + G.safe.t, Math.floor((G.H - this.ph - 48) / 2));
+      const g = this.game, w = g.world, p = this.player;
+      const x = this.px, y = this.py + this.ph + 4, bw = 47;
+      this.widgets = [];
+      const setTime = (t) => { w.time = Math.floor(w.time / 24000) * 24000 + t; };
+      this.btn('Sunrise', x, y, bw, 20, () => setTime(0));
+      this.btn('Noon', x + 49, y, bw, 20, () => setTime(6000));
+      this.btn('Sunset', x + 98, y, bw, 20, () => setTime(12000));
+      this.btn('Night', x + 147, y, bw + 2, 20, () => setTime(18000));
+      const tl = () => 'Time: ' + (w.timeFrozen ? 'Frozen' : 'Running');
+      const fl = () => 'Flying: ' + (p.flying ? 'ON' : 'OFF');
+      const tb = this.btn(tl(), x, y + 22, 96, 20, () => { w.timeFrozen = !w.timeFrozen; tb.label = tl(); });
+      const fb = this.btn(fl(), x + 100, y + 22, 96, 20, () => { p.flying = !p.flying; p.vy = p.flying ? 0.2 : p.vy; fb.label = fl(); });
+      this.btn('▲', this.px + this.pw - 20, this.py + 17, 14, 14, () => { this.scroll = Math.max(0, this.scroll - 1); });
+      this.btn('▼', this.px + this.pw - 20, this.py + 17 + this.rows * 18 - 14, 14, 14, () => { this.scroll = Math.min(this.maxScroll, this.scroll + 1); });
+    }
+    buildSlots() {
+      for (let r = 0; r < this.rows; r++) for (let c = 0; c < 9; c++) {
+        const k = r * 9 + c;
+        this.slots.push({ x: 9 + c * 18, y: 18 + r * 18, source: true, get: () => { const d = this.items[this.scroll * 9 + k]; return d ? { id: d.id, count: 1, dmg: 0 } : null; }, set: () => { } });
+      }
+      const p = this.player;
+      for (let c = 0; c < 9; c++) this.slots.push({ x: 9 + c * 18, y: 18 + this.rows * 18 + 10, get: () => p.inv[c], set: (st) => { p.inv[c] = st; }, inv: true, index: c, hotbar: true });
+    }
+    clickSlot(s, button, shift) {
+      const p = this.player;
+      if (s.source) {
+        const st = s.get();
+        if (p.cursor) { p.cursor = null; return; }
+        if (!st) return;
+        const n = button === 2 ? 1 : I().maxStack(st.id);
+        if (shift) { p.addItem(I().stack(st.id, n)); return; }
+        p.cursor = I().stack(st.id, n);
+        DL.Input.haptic('tick');
+        return;
+      }
+      if (shift && s.get()) { s.set(null); return; }
+      super.clickSlot(s, button, false);
+    }
+    mouseDown(x, y, button, shift) {
+      const w = this.widgetAt(x, y);
+      if (w && button === 0) { DL.Audio.play('click', null, null, null, 1, 1); w.onClick(w); return; }
+      const inside = x >= this.px && y >= this.py && x < this.px + this.pw && y < this.py + this.ph;
+      if (!inside && !this.slotAt(x, y) && this.player.cursor) { this.player.cursor = null; return; }
+      super.mouseDown(x, y, button, shift);
+    }
+    wheel(d) { this.scroll = Math.max(0, Math.min(this.maxScroll, this.scroll + d)); }
+    padButton(b) {
+      const P = DL.Input.GPB;
+      if (b === P.LB) { this.wheel(-1); return; }
+      if (b === P.RB) { this.wheel(1); return; }
+      const c = this.cursorPos;
+      if (b === P.A && c) { const w = this.widgetAt(c.x, c.y); if (w) { w.onClick(w); return; } }
+      super.padButton(b);
+    }
+    drawBackground(mx, my) {
+      G.panel(this.px, this.py, this.pw, this.ph);
+      this.drawLabel('Creative - all items', 9, 6);
+      // scrollbar track
+      const tx = this.px + this.pw - 18, ty = this.py + 33, th = this.rows * 18 - 34;
+      G.rect(tx, ty, 10, th, '#8B8B8B');
+      const ms = this.maxScroll;
+      const ky = ty + (ms ? Math.round(this.scroll / ms * (th - 10)) : 0);
+      G.rect(tx + 1, ky, 8, 10, '#E0E0E0');
+      this.drawLabel('Hotbar (shift-click to clear)', 9, 18 + this.rows * 18 + 1);
+    }
+    draw(mx, my) {
+      super.draw(mx, my);
+      const g = DL.Input.lastDevice === 'gamepad' && this.cursorPos;
+      this.drawWidgets(g ? this.cursorPos.x : mx, g ? this.cursorPos.y : my);
+      if (this.player.cursor) G.drawItem(this.player.cursor, (g ? this.cursorPos.x : mx) - 8, (g ? this.cursorPos.y : my) - 8);
+    }
+    key(code) {
+      if (code === 'ArrowUp') this.wheel(-1);
+      else if (code === 'ArrowDown') this.wheel(1);
+      else super.key(code);
+    }
+    close() { this.player.cursor = null; }
+  }
+  G.CreativeScreen = CreativeScreen;
+
+  /* ------------------------------------------------------------ */
   /* HUD                                                          */
   /* ------------------------------------------------------------ */
   G.drawHUD = function (game, pt) {
@@ -1099,6 +1195,10 @@
       if (s) G.drawItem(s, hx + 3 + i * 20, hy + 3);
     }
     // hearts
+    if (p.creative) {
+      if (p.flying) G.textC('Flying', W / 2, H - 32, '#FFFFA0');
+      return G.drawHUDExtras(game, W, H, hy);
+    }
     const flash = p.hurtResist > 10 && Math.floor(p.hurtResist / 3) % 2 === 1;
     const hp = Math.max(0, p.health), prev = game.prevHealth === undefined ? hp : game.prevHealth;
     const low = hp <= 4;
@@ -1134,6 +1234,11 @@
         ctx.drawImage(i < full ? DL.Tex.gui.bubble : DL.Tex.gui.bubblePop, x, gy - (armor > 0 ? 10 : 0));
       }
     }
+    G.drawHUDExtras(game, W, H, hy);
+  };
+
+  G.drawHUDExtras = function (game, W, H, hy) {
+    const p = game.player, ctx = G.ctx;
     // held item name popup
     if (game.itemNameTimer > 0 && p.held) {
       const a = Math.min(1, game.itemNameTimer / 10);

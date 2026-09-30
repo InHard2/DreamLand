@@ -135,8 +135,8 @@
     /* ---------------------------------------------------------- */
     /* World lifecycle                                            */
     /* ---------------------------------------------------------- */
-    async createWorld(slot, name, seed) {
-      const meta = { slot, name, seed, time: 0, created: Date.now(), player: null, size: 0 };
+    async createWorld(slot, name, seed, creative) {
+      const meta = { slot, name, seed, time: 0, created: Date.now(), player: null, size: 0, creative: !!creative };
       await DL.Storage.deleteWorld(slot);
       await DL.Storage.putWorld(slot, meta);
       this.startWorld(slot, meta, true);
@@ -161,6 +161,8 @@
       this.player = p;
       world.player = p;
       world.entities.push(p);
+      p.creative = !!meta.creative;
+      world.timeFrozen = !!meta.timeFrozen;
       if (meta.player) p.restore(meta.player);
       else {
         const sp = meta.spawn || this.findSpawn(world);
@@ -305,6 +307,8 @@
       this.saveIndicator = 40;
       const w = this.world, m = this.meta;
       m.time = w.time;
+      m.timeFrozen = !!w.timeFrozen;
+      m.creative = !!this.player.creative;
       m.player = this.player.serialize();
       m.size = w.savedKeys.size * 16 * 1024;
       m.lastPlayed = Date.now();
@@ -485,7 +489,7 @@
       if (s.count <= 0) p.held = null;
       p.swing();
     }
-    openInventory() { this.setScreen(new G.InventoryScreen(this)); }
+    openInventory() { this.setScreen(this.player.creative ? new G.CreativeScreen(this) : new G.InventoryScreen(this)); }
     pickBlock() {
       const t = this.target;
       if (!t || t.entity) return;
@@ -496,6 +500,7 @@
       const p = this.player;
       for (let i = 0; i < 9; i++) if (p.inv[i] && p.inv[i].id === id) { this.selectSlot(i); return; }
       for (let i = 9; i < 36; i++) if (p.inv[i] && p.inv[i].id === id) { const t2 = p.inv[p.selected]; p.inv[p.selected] = p.inv[i]; p.inv[i] = t2; this.itemNameTimer = 40; return; }
+      if (p.creative && I.get(id)) { p.held = I.stack(id, I.maxStack(id)); this.itemNameTimer = 40; }
     }
 
     chatMessage(text) { G.chat.push({ text, t: performance.now() }); if (G.chat.length > 100) G.chat.shift(); }
@@ -552,6 +557,14 @@
           break;
         }
         case 'clear': p.inv.fill(null); p.armor.fill(null); msg('Cleared inventory'); break;
+        case 'gamemode': {
+          const a = (args[0] || '').toLowerCase();
+          p.creative = a === 'creative' || a === 'c' || a === '1' ? true : a === 'survival' || a === 's' || a === '0' ? false : !p.creative;
+          if (!p.creative) p.flying = false;
+          this.meta.creative = p.creative;
+          msg('Game mode: ' + (p.creative ? 'Creative' : 'Survival'));
+          break;
+        }
         case 'spawnpoint': p.spawnPoint = [p.x, p.y, p.z]; msg('Spawn point set'); break;
         case 'items': msg(I.all().filter(d => d.id > 255).map(d => d.name).slice(0, 40).join(', ')); break;
         default: msg('§cUnknown command. Type /help');
@@ -704,6 +717,13 @@
       p.moveForward = (!scr || scr instanceof G.ChatScreen) ? this.moveF || 0 : 0;
       p.moveStrafe = (!scr || scr instanceof G.ChatScreen) ? this.moveS || 0 : 0;
       p.jumping = !scr && this.jumpHeld;
+      // creative: double-tap jump toggles flying
+      if (p.creative && p.jumping && !this._jumpWas) {
+        if (this.tickCount - (this._lastJumpTap || -99) < 7) { p.flying = !p.flying; this._lastJumpTap = -99; In.haptic('tick'); }
+        else this._lastJumpTap = this.tickCount;
+      }
+      this._jumpWas = p.jumping;
+      if (!p.creative) p.flying = false;
       p.sneaking = !scr && this.sneakHeld && !p.inWater;
       // touch auto-jump
       if (this.touchOn() && this.settings.autoJump && p.onGround && p.collidedH && (p.moveForward > 0.3) && !p.sneaking) p._autoJump = 3;
@@ -775,7 +795,7 @@
             // punching TNT / hardness 0 break instantly
           }
           const dg = this.dig;
-          const rate = I.breakRate(id, p.held, p.headInWater(), p.onGround || p.inWater && false);
+          const rate = p.creative ? 1 : I.breakRate(id, p.held, p.headInWater(), p.onGround || p.inWater && false);
           dg.progress += rate;
           if (this.tickCount % 4 === 0) {
             A.play(this.blockSound(id), t.x + 0.5, t.y + 0.5, t.z + 0.5, 0.25, 0.5);
@@ -787,7 +807,7 @@
             const meta = w.getMeta(t.x, t.y, t.z);
             const held = p.held;
             if (id === B.tnt) { w.igniteTNT(t.x, t.y, t.z, 80); }
-            else w.destroyBlock(t.x, t.y, t.z, true, held, true);
+            else w.destroyBlock(t.x, t.y, t.z, !p.creative, held, true);
             void meta;
             const d = held && I.get(held.id);
             if (d && d.tool && S.blocks[id].hardness > 0) p.damageHeld(1);
@@ -942,7 +962,7 @@
       const snd = this.blockSound(id);
       A.play(snd, x + 0.5, y + 0.5, z + 0.5, 1, 0.8);
       if (id === B.sand || id === B.gravel) this.world.neighborChanged(x, y, z);
-      p.consumeHeld(1);
+      if (!p.creative) p.consumeHeld(1);
       p.swing();
       In.haptic('place');
     }
