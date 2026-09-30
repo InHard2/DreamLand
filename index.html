@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DreamLand">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="DreamLand - a voxel sandbox tribute to the classic Alpha era. Runs in the browser on PC, phones, tablets and Xbox.">
+<title>DreamLand</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; position: fixed; inset: 0;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #gl { z-index: 0; }
+  #ui { z-index: 1; outline: none; }
+  #safeprobe {
+    position: fixed; left: 0; top: 0; visibility: hidden; pointer-events: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #boot, #fatal {
+    position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; text-align: center;
+    color: #fff; font: 16px/1.4 monospace; padding: 24px; box-sizing: border-box;
+    background: #2b1d14 repeating-conic-gradient(#3a281b 0% 25%, #2b1d14 0% 50%) 0 0 / 32px 32px;
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ui" tabindex="0"></canvas>
+<div id="safeprobe"></div>
+<div id="boot">Loading DreamLand&hellip;</div>
+<div id="fatal" style="display:none"></div>
+<noscript><div id="fatal" style="display:flex">DreamLand needs JavaScript enabled.</div></noscript>
+
+<script src="js/shared.js"></script>
+<script src="js/math.js"></script>
+<script>DL.S = DL_SHARED_FACTORY();</script>
+<script src="js/textures.js"></script>
+<script src="js/font.js"></script>
+<script src="js/items.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/world.js"></script>
+<script src="js/models.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/gui.js"></script>
+<script src="js/game.js"></script>
+<script>
+  (function () {
+    function fatal(msg) {
+      var f = document.getElementById('fatal');
+      f.style.display = 'flex';
+      f.textContent = msg;
+      document.getElementById('boot').style.display = 'none';
+    }
+    window.addEventListener('load', function () {
+      try {
+        DL.game = new DL.Game();
+        DL.game.boot();
+      } catch (e) {
+        console.error(e);
+        fatal('DreamLand failed to start: ' + (e && e.message ? e.message : e));
+      }
+    });
+    window.addEventListener('error', function (e) { console.error('Uncaught', e.message, e.filename + ':' + e.lineno); });
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
+  })();
+</script>
+</body>
+</html>
