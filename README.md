@@ -29,6 +29,11 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - Games are discovered through the artifact page's live room, so friends need access to the same DreamLand artifact.
 - The host's world is the authority: every guest action is validated, range-checked and rate-limited; only the host can run commands and take everyone through portals.
 
+**Playing with a downloaded copy (or any other browser)?** Use invite codes, no lobby needed:
+1. The guest taps **Multiplayer > Join with an invite code** and sends the `DL1-...` code to the host (any chat app).
+2. The host pastes it in **Pause > Invite by code** and sends the `DL2-...` reply code back.
+3. The guest pastes the reply and is in. Both devices still have to be on the same Wi-Fi.
+
 ## Portal Gun
 
 - Craft it (glowstone dust on top, iron ingots around an ender pearl, obsidian at the bottom) or grab it from the Creative inventory.

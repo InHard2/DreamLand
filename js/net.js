@@ -172,7 +172,7 @@
       this.lastHeard = performance.now(); this.fragId = 1;
       pc.onconnectionstatechange = () => {
         const s = pc.connectionState;
-        if (s === 'failed' || s === 'closed') this.close();
+        if ((s === 'failed' && !this.patient) || s === 'closed') this.close();
         else if (s === 'disconnected') { clearTimeout(this._dt); this._dt = setTimeout(() => { if (pc.connectionState === 'disconnected') this.close(); }, 6000); }
       };
     }
@@ -352,7 +352,7 @@
         const fails = h.fails.get(this.peer) || 0;
         if (m.v !== PROTO) { this.kick('Different game version - reload both games'); return; }
         if (fails >= 5) { this.kick('Too many wrong codes'); return; }
-        if (typeof m.code !== 'string' || m.code !== h.code) { h.fails.set(this.peer, fails + 1); this.kick('Wrong join code'); return; }
+        if (!this.trusted && (typeof m.code !== 'string' || m.code !== h.code)) { h.fails.set(this.peer, fails + 1); this.kick('Wrong join code'); return; }
         if (h.conns.size > MAX_GUESTS) { this.kick('The game is full'); return; }
         this.rd = isInt(m.rd, 2, 8) ? m.rd : 4;
         if (!this.key && typeof m.key === 'string' && /^[a-z0-9]{8,32}$/.test(m.key)) this.key = 'k:' + m.key;
@@ -1054,7 +1054,8 @@
     N.host = h;
     await h.start();
     game.chatMessage('§aLocal game opened! §fFriends on the same Wi-Fi can join from Multiplayer with code §e' + h.code);
-    if (L.kind === 'local') game.chatMessage('§c(The shared lobby is not available here, so only this device can see your game. Sign in and open the link shared with your friends.)');
+    if (L.kind === 'local') game.chatMessage('§7(No Claude lobby in this copy: friends join with Pause > Invite by code.)');
+    else game.chatMessage('§7Friend on a downloaded copy? Use Pause > Invite by code.');
     return h;
   };
   N.join = async function (game, gameEntry, code, onStatus) {
@@ -1098,6 +1099,9 @@
     });
     room.presence({ dl: null }).catch(() => {});
     if (!ok || !link.open) { link.close(); onStatus('Could not connect. Make sure you are both on the same Wi-Fi.'); return false; }
+    return enterGame(game, L, link, gameEntry, code, k, onStatus);
+  };
+  async function enterGame(game, L, link, gameEntry, code, k, onStatus) {
     let key = null;
     try { key = localStorage.getItem('dreamland.lankey'); if (!key) { key = k + k.slice(0, 4); localStorage.setItem('dreamland.lankey', key); } } catch (e) { key = k; }
     const client = new Client(game, L, link, gameEntry);
@@ -1112,6 +1116,293 @@
       return false;
     }
     return true;
+  }
+
+  /* ------------------------------------------------------------ */
+  /* Invite codes: connect any two copies (claude.ai, a download, */
+  /* another browser) by pasting two short codes, no lobby needed */
+  /* ------------------------------------------------------------ */
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  function b64enc(b) {
+    let s = '';
+    for (let i = 0; i < b.length; i += 3) {
+      const n = (b[i] << 16) | ((b[i + 1] || 0) << 8) | (b[i + 2] || 0), k = Math.min(4, Math.ceil((b.length - i) * 4 / 3));
+      for (let j = 0; j < k; j++) s += B64[(n >> (18 - 6 * j)) & 63];
+    }
+    return s;
+  }
+  function b64dec(s) {
+    const out = []; let acc = 0, bits = 0;
+    for (const c of s) {
+      const v = B64.indexOf(c); if (v < 0) return null;
+      acc = ((acc << 6) | v) & 0xffffff; bits += 6;
+      if (bits >= 8) { bits -= 8; out.push((acc >> bits) & 255); }
+    }
+    return Uint8Array.from(out);
+  }
+  const ICE_RE = /^[A-Za-z0-9+/]{4,256}$/, MID_RE = /^[A-Za-z0-9_-]{1,16}$/;
+  const UUID_LOCAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.local$/;
+  const IP4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  /** The few things a data-channel SDP really needs. */
+  function sdpInfo(sdp) {
+    const get = (re) => { const m = re.exec(sdp); return m ? m[1].trim() : null; };
+    const ufrag = get(/^a=ice-ufrag:(.+)$/m), pwd = get(/^a=ice-pwd:(.+)$/m), mid = get(/^a=mid:(.+)$/m) || '0', setup = get(/^a=setup:(.+)$/m) || 'actpass';
+    const fpm = /^a=fingerprint:sha-256 ([0-9A-Fa-f:]+)\s*$/m.exec(sdp);
+    if (!ufrag || !pwd || !fpm || !ICE_RE.test(ufrag) || !ICE_RE.test(pwd) || !MID_RE.test(mid)) return null;
+    const fp = fpm[1].split(':').map(h => parseInt(h, 16));
+    if (fp.length !== 32 || fp.some(v => !(v >= 0 && v <= 255))) return null;
+    const cands = [];
+    for (const line of sdp.split(/\r?\n/)) {
+      if (!line.startsWith('a=candidate:')) continue;
+      const f = line.slice(12).split(' '), a = String(f[4] || '').toLowerCase(), port = parseInt(f[5], 10);
+      if (f.length < 8 || f[1] !== '1' || String(f[2]).toLowerCase() !== 'udp' || f[7] !== 'host' || !(port > 0 && port < 65536)) continue;
+      if (!(privateAddr(a) || N._testAnyHost === true) || !(IP4.test(a) || UUID_LOCAL.test(a) || /^[0-9a-f:]{2,39}$/.test(a))) continue;
+      if (!cands.some(c => c.a === a && c.p === port)) cands.push({ a, p: port });
+    }
+    cands.sort((x, y) => (x.a.includes(':') ? 1 : 0) - (y.a.includes(':') ? 1 : 0));
+    return { ufrag, pwd, mid, setup: setup === 'active' ? 1 : setup === 'passive' ? 2 : 0, fp, cands: cands.slice(0, 3) };
+  }
+  /** kind 1 = join request (guest -> host), kind 2 = reply (host -> guest). */
+  function packInvite(kind, sdp) {
+    const s = sdpInfo(sdp);
+    if (!s || (kind === 2 && !s.cands.length)) return null;
+    const out = [1, kind | (s.setup << 4)];
+    const str = (t) => { out.push(t.length); for (const ch of t) out.push(ch.charCodeAt(0) & 255); };
+    str(s.ufrag); str(s.pwd); str(s.mid);
+    out.push(...s.fp);
+    // A join request carries no addresses: the host just waits for the
+    // guest's own connection checks, so it never gives up while you paste.
+    const cands = kind === 2 ? s.cands : [];
+    out.push(cands.length);
+    for (const c of cands) {
+      const m = IP4.exec(c.a);
+      if (m) out.push(4, +m[1], +m[2], +m[3], +m[4]);
+      else if (UUID_LOCAL.test(c.a)) { out.push(109); const hx = c.a.slice(0, 36).replace(/-/g, ''); for (let i = 0; i < 32; i += 2) out.push(parseInt(hx.slice(i, i + 2), 16)); }
+      else { out.push(115); str(c.a); }
+      out.push(c.p >> 8, c.p & 255);
+    }
+    return 'DL' + kind + '-' + b64enc(out);
+  }
+  function unpackInvite(text, kind) {
+    const m = /DL([12])-([A-Za-z0-9_-]{40,400})/.exec(String(text || '').replace(/\s+/g, ''));
+    if (!m || +m[1] !== kind) return null;
+    const b = b64dec(m[2]);
+    if (!b) return null;
+    let i = 0;
+    const need = (n) => { if (i + n > b.length) throw new Error('short'); };
+    const str = () => { need(1); const n = b[i++]; need(n); let t = ''; for (let k = 0; k < n; k++) t += String.fromCharCode(b[i++]); return t; };
+    try {
+      need(2);
+      if (b[i++] !== 1) return null;
+      const fl = b[i++], setup = ['actpass', 'active', 'passive'][fl >> 4];
+      if ((fl & 15) !== kind || !setup) return null;
+      const ufrag = str(), pwd = str(), mid = str();
+      if (!ICE_RE.test(ufrag) || !ICE_RE.test(pwd) || !MID_RE.test(mid)) return null;
+      need(32);
+      const fp = Array.from(b.slice(i, i + 32), v => v.toString(16).toUpperCase().padStart(2, '0')).join(':'); i += 32;
+      need(1);
+      const n = b[i++], cands = [];
+      if (n > 3) return null;
+      for (let k = 0; k < n; k++) {
+        need(1);
+        const ty = b[i++]; let a;
+        if (ty === 4) { need(4); a = b[i] + '.' + b[i + 1] + '.' + b[i + 2] + '.' + b[i + 3]; i += 4; }
+        else if (ty === 109) { need(16); const h = Array.from(b.slice(i, i + 16), v => v.toString(16).padStart(2, '0')).join(''); i += 16; a = h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20) + '.local'; }
+        else if (ty === 115) { a = str(); if (!/^[0-9a-f:]{2,39}$/.test(a)) return null; }
+        else return null;
+        need(2);
+        const port = (b[i] << 8) | b[i + 1]; i += 2;
+        if (port && (privateAddr(a) || N._testAnyHost === true)) cands.push('a=candidate:' + (k + 1) + ' 1 udp ' + (2122260223 - k * 256) + ' ' + a + ' ' + port + ' typ host generation 0');
+      }
+      if (i !== b.length || (kind === 2 && !cands.length)) return null;
+      const sid = String(Date.now()) + String(Math.floor(Math.random() * 1e6)).padStart(6, '0');
+      return ['v=0', 'o=- ' + sid + ' 2 IN IP4 127.0.0.1', 's=-', 't=0 0', 'a=group:BUNDLE ' + mid,
+        'm=application 9 UDP/DTLS/SCTP webrtc-datachannel', 'c=IN IP4 0.0.0.0', ...cands,
+        'a=ice-ufrag:' + ufrag, 'a=ice-pwd:' + pwd, 'a=ice-options:trickle', 'a=fingerprint:sha-256 ' + fp,
+        'a=setup:' + setup, 'a=mid:' + mid, 'a=sctp-port:5000', 'a=max-message-size:262144'].join('\r\n') + '\r\n';
+    } catch (e) { return null; }
+  }
+  N._invite = { pack: packInvite, unpack: unpackInvite };
+
+  /** Guest: make a join-request code; `connect(reply)` finishes the job. */
+  N.inviteOffer = async function () {
+    if (!N.supported()) return { error: 'This browser cannot do local multiplayer' };
+    const pc = newPC(), link = new Link(pc);
+    link.patient = true;
+    link.attach(pc.createDataChannel('r', { ordered: true }));
+    link.attach(pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 }));
+    await pc.setLocalDescription(await pc.createOffer());
+    await gathered(pc, 2500);
+    const local = pc.localDescription.sdp;
+    if (!/a=candidate:/.test(lanOnly(local))) { link.close(); return { error: 'No Wi-Fi network found - connect to Wi-Fi first' }; }
+    const code = packInvite(1, local);
+    if (!code) { link.close(); return { error: 'This browser made a connection we cannot share, sorry' }; }
+    const k = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('');
+    return {
+      code,
+      cancel: () => { if (!link.open || !N.client) link.close(); },
+      async connect(game, replyText, onStatus) {
+        const sdp = unpackInvite(replyText, 2);
+        if (!sdp) return 'bad';
+        if (N.host || N.client) return 'busy';
+        try { await pc.setRemoteDescription({ type: 'answer', sdp }); } catch (e) { console.warn('net: invite answer', e); return 'bad'; }
+        onStatus('Connecting over your Wi-Fi...');
+        const open = await new Promise(res => { if (link.open) return res(true); link.onopen = () => res(true); setTimeout(() => res(link.open), 20000); });
+        if (!open) { link.close(); return 'fail'; }
+        link.patient = false;
+        const L = await N.lobby();
+        return (await enterGame(game, L, link, { peer: null, by: null, world: 'World', players: 1 }, '', k, onStatus)) ? 'ok' : 'fail';
+      }
+    };
+  };
+  /** Host: turn a friend's join-request code into a reply code. */
+  N.inviteAccept = async function (game, text) {
+    const offer = unpackInvite(text, 1);
+    if (!offer) return { error: 'bad' };
+    if (N.client) return { error: 'You are playing on someone else\'s game' };
+    const h = N.host || await N.openToLan(game);
+    if (!h) return { error: 'This browser cannot host local multiplayer' };
+    const pc = newPC();
+    const conn = new Conn(h, pc, 'invite-' + Math.random().toString(36).slice(2, 10), null);
+    conn.trusted = true; conn.link.patient = true;
+    pc.ondatachannel = (ev) => conn.link.attach(ev.channel);
+    try {
+      await pc.setRemoteDescription({ type: 'offer', sdp: offer });
+      await pc.setLocalDescription(await pc.createAnswer());
+    } catch (e) { console.warn('net: invite offer', e); conn.link.close(); return { error: 'bad' }; }
+    await gathered(pc, 2500);
+    const reply = packInvite(2, lanOnly(pc.localDescription.sdp));
+    if (!reply) { conn.link.close(); return { error: 'No Wi-Fi network found - connect to Wi-Fi first' }; }
+    conn.link.onopen = () => {
+      conn.link.patient = false;
+      if (h.stopped || N.host !== h || h.conns.size > MAX_GUESTS) { conn.link.close(); return; }
+      h.conns.add(conn);
+      setTimeout(() => { if (!conn.authed) conn.link.close(); }, 10000);
+    };
+    setTimeout(() => { if (!conn.link.open) conn.link.close(); }, 10 * 60 * 1000);
+    return { reply, conn };
+  };
+
+  /* A small HTML dialog: canvas text fields cannot be pasted into on phones. */
+  function el(tag, css, text) { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text) e.textContent = text; return e; }
+  const BTN_CSS = 'font:inherit;color:#fff;background:#6b6b6b;border:2px solid #000;box-shadow:inset 2px 2px #a5a5a5,inset -2px -2px #3e3e3e;padding:9px 14px;min-height:42px;cursor:pointer;margin:6px 6px 0 0;';
+  function dialog(title) {
+    try { DL.Input.textInput.blur(); } catch (e) { /* ignore */ }
+    if (document.exitPointerLock) try { document.exitPointerLock(); } catch (e) { /* ignore */ }
+    const root = el('div', 'position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.62);font:15px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#fff;touch-action:auto;-webkit-user-select:text;user-select:text;padding:12px;box-sizing:border-box;');
+    const box = el('div', 'background:#2b2b2b;border:2px solid #000;box-shadow:inset 2px 2px #5a5a5a,inset -2px -2px #161616;padding:16px;width:100%;max-width:480px;max-height:100%;overflow:auto;box-sizing:border-box;');
+    box.appendChild(el('div', 'font-size:17px;font-weight:bold;margin-bottom:8px;color:#ffff55;', title));
+    const body = el('div');
+    const status = el('div', 'min-height:1.4em;margin-top:10px;color:#a0a0a0;');
+    box.appendChild(body); box.appendChild(status); root.appendChild(box);
+    const stop = (e) => { e.stopPropagation(); if (e.type === 'keydown' && e.key === 'Escape') d.close(); };
+    for (const t of ['keydown', 'keyup', 'keypress', 'mousedown', 'mouseup', 'mousemove', 'wheel', 'touchstart', 'touchmove', 'touchend', 'pointerdown', 'pointerup', 'contextmenu']) root.addEventListener(t, stop);
+    document.body.appendChild(root);
+    const d = {
+      onclose: null,
+      closed: false,
+      close() { if (d.closed) return; d.closed = true; root.remove(); if (d.onclose) d.onclose(); },
+      clear() { body.textContent = ''; },
+      text(t, col) { const p = el('div', 'margin:8px 0 4px;' + (col ? 'color:' + col + ';' : ''), t); body.appendChild(p); return p; },
+      area(value, editable, placeholder) {
+        const a = el('textarea', 'display:block;width:100%;box-sizing:border-box;height:92px;font:16px/1.3 ui-monospace,Menlo,Consolas,monospace;background:#000;color:#fff;border:2px solid #a0a0a0;padding:6px;resize:none;word-break:break-all;-webkit-user-select:text;user-select:text;touch-action:auto;');
+        a.value = value || ''; a.readOnly = !editable; a.spellcheck = false; a.autocapitalize = 'off'; a.setAttribute('autocorrect', 'off'); a.autocomplete = 'off';
+        if (placeholder) a.placeholder = placeholder;
+        if (!editable) a.addEventListener('focus', () => { try { a.select(); a.setSelectionRange(0, a.value.length); } catch (e) { /* ignore */ } });
+        body.appendChild(a); return a;
+      },
+      buttons(list) {
+        const row = el('div', 'display:flex;flex-wrap:wrap;');
+        for (const [label, fn] of list) { const b = el('button', BTN_CSS, label); b.type = 'button'; b.addEventListener('click', (e) => { e.preventDefault(); fn(b); }); row.appendChild(b); }
+        body.appendChild(row); return row;
+      },
+      status(t, col) { status.textContent = t || ''; status.style.color = col || '#a0a0a0'; }
+    };
+    return d;
+  }
+  async function copyCode(d, area) {
+    const t = area.value;
+    try { await navigator.clipboard.writeText(t); d.status('Copied! Now paste it in a message to your friend.', '#55ff55'); return; } catch (e) { /* try the old way */ }
+    try { area.focus(); area.select(); area.setSelectionRange(0, t.length); if (document.execCommand('copy')) { d.status('Copied! Now paste it in a message to your friend.', '#55ff55'); return; } } catch (e) { /* ignore */ }
+    d.status('Press and hold the code, then choose Select All and Copy.', '#ffff55');
+  }
+  async function shareCode(d, area) {
+    try { await navigator.share({ text: area.value }); d.status('Sent!', '#55ff55'); } catch (e) { if (!e || e.name !== 'AbortError') copyCode(d, area); }
+  }
+  async function pasteInto(d, area) {
+    try { const t = await navigator.clipboard.readText(); if (t) { area.value = t; area.dispatchEvent(new Event('input')); return; } } catch (e) { /* not allowed here */ }
+    area.focus();
+    d.status('Press and hold inside the box and choose Paste.', '#ffff55');
+  }
+  const shareBtn = (d, area) => (typeof navigator.share === 'function' ? [['Share...', () => shareCode(d, area)]] : []);
+
+  /** Guest side: Multiplayer > Join with an invite code. */
+  N.inviteJoinDialog = function (game, onStatus) {
+    const d = dialog('Join with an invite code');
+    let offer = null, busy = false;
+    d.onclose = () => { if (offer && !N.client) offer.cancel(); };
+    d.text('Making your code...');
+    N.inviteOffer().then(o => {
+      if (d.closed) { if (o.cancel) o.cancel(); return; }
+      d.clear();
+      if (o.error) { d.text(o.error, '#ff5555'); d.buttons([['Close', () => d.close()]]); return; }
+      offer = o;
+      d.text('1. Send this code to the friend who is hosting (Messages, WhatsApp, anything):');
+      const mine = d.area(o.code, false);
+      d.buttons([['Copy code', () => copyCode(d, mine)], ...shareBtn(d, mine)]);
+      d.text('2. They open their pause menu, tap "Invite by code" and paste it. Then paste the reply code they send back here:');
+      const reply = d.area('', true, 'DL2-...');
+      const go = async () => {
+        if (busy || d.closed) return;
+        if (!unpackInvite(reply.value, 2)) { d.status(/DL1-/.test(reply.value) ? 'That is your own code - paste the reply your friend sends back.' : 'That does not look like a reply code (it starts with DL2-).', '#ff5555'); return; }
+        busy = true;
+        const r = await o.connect(game, reply.value, (t) => { d.status(t); if (onStatus) onStatus(t); });
+        busy = false;
+        if (r === 'ok') { offer = null; d.close(); return; }
+        if (r === 'bad') d.status('That reply code did not work. Ask your friend to paste your code again.', '#ff5555');
+        else if (r === 'busy') d.status('You are already in a game.', '#ff5555');
+        else { offer = null; d.clear(); d.text('Could not connect. Check that you are both on the same Wi-Fi, then try again.', '#ff5555'); d.buttons([['Try again', () => { d.close(); N.inviteJoinDialog(game, onStatus); }], ['Close', () => d.close()]]); d.status(''); }
+      };
+      reply.addEventListener('input', () => { if (unpackInvite(reply.value, 2)) go(); });
+      d.buttons([['Paste', () => pasteInto(d, reply)], ['Join', go], ['Cancel', () => d.close()]]);
+    });
+    return d;
+  };
+  /** Host side: Pause > Invite by code. */
+  N.inviteHostDialog = function (game, onChange) {
+    const d = dialog('Invite a friend by code');
+    let busy = false, poll = null;
+    d.onclose = () => { clearInterval(poll); if (onChange) onChange(); };
+    const start = () => {
+      d.clear(); d.status('');
+      d.text('1. Your friend opens DreamLand (here on Claude, or a downloaded copy), taps Multiplayer > "Join with an invite code" and sends you their code. Paste it here:');
+      const theirs = d.area('', true, 'DL1-...');
+      const go = async () => {
+        if (busy || d.closed) return;
+        if (!unpackInvite(theirs.value, 1)) { d.status(/DL2-/.test(theirs.value) ? 'That is a reply code - paste the code that starts with DL1-.' : 'That does not look like a join code (it starts with DL1-).', '#ff5555'); return; }
+        busy = true; d.status('Making a reply code...');
+        const r = await N.inviteAccept(game, theirs.value);
+        busy = false;
+        if (d.closed) return;
+        if (r.error) { d.status(r.error === 'bad' ? 'That code did not work. Ask your friend for a new one.' : r.error, '#ff5555'); return; }
+        if (onChange) onChange();
+        d.clear();
+        d.text('2. Send this reply code back to your friend:');
+        const mine = d.area(r.reply, false);
+        d.buttons([['Copy code', () => copyCode(d, mine)], ...shareBtn(d, mine)]);
+        d.status('Waiting for your friend to paste it...');
+        d.buttons([['Invite someone else', () => { clearInterval(poll); start(); }], ['Close', () => d.close()]]);
+        clearInterval(poll);
+        poll = setInterval(() => {
+          if (r.conn.authed) { clearInterval(poll); d.status('Your friend joined the game!', '#55ff55'); if (onChange) onChange(); setTimeout(() => d.close(), 1500); }
+          else if (r.conn.link.closed) { clearInterval(poll); d.status('That invite expired. Tap "Invite someone else" to try again.', '#ff5555'); }
+        }, 300);
+      };
+      theirs.addEventListener('input', () => { if (unpackInvite(theirs.value, 1)) go(); });
+      d.buttons([['Paste', () => pasteInto(d, theirs)], ['Next', go], ['Close', () => d.close()]]);
+    };
+    start();
+    return d;
   };
 
   /* ------------------------------------------------------------ */
@@ -1373,7 +1664,7 @@
       });
       this.iv = setInterval(() => this.refresh(), 1000);
     }
-    close() { this.closed = true; if (this.unsub) this.unsub(); clearInterval(this.iv); DL.Input.textInput.blur(); }
+    close() { this.closed = true; if (this.unsub) this.unsub(); clearInterval(this.iv); DL.Input.textInput.blur(); if (this.inviteD && !N.client) this.inviteD.close(); }
     refresh() {
       if (!this.L) return;
       const list = [];
@@ -1393,9 +1684,9 @@
     }
     lobbyStatus() {
       if (this.games.length) return this.games.length > 1 && !this.sel ? 'Type the code and press Join (or tap a game first)' : 'Type the 4-digit code and press Join';
-      if (this.L && this.L.kind === 'local') return 'Shared lobby unavailable here: sign in and open the link your friend shared';
+      if (this.L && this.L.kind === 'local') return 'No Claude lobby in this copy: use "Join with an invite code" below';
       if (this.others) return this.others + (this.others === 1 ? ' friend is' : ' friends are') + ' here, but no game is open yet. Host: Pause > Open to Wi-Fi';
-      return 'Nobody else has DreamLand open yet. Open the same link on both devices';
+      return 'Nobody else is in the lobby yet. Playing a downloaded copy? Use an invite code';
     }
     canJoin() { return /^\d{4}$/.test(this.field.value) && !this.joining; }
     layout() {
@@ -1410,7 +1701,8 @@
       this.field.x = cx - 120 + 80; this.field.y = fy;
       this.widgets.push(this.field);
       this.joinBtn = this.btn(this.joining ? 'Joining...' : 'Join', cx + 26, fy, 94, 20, () => this.join(), { enabled: this.canJoin() });
-      this.btn('Back', cx - 100, fy + 56, 200, 20, () => this.back());
+      this.btn('Join with an invite code', cx - 100, fy + 52, 200, 20, () => { this.inviteD = N.inviteJoinDialog(this.game, (t) => { this.status = t; }); });
+      this.btn('Back', cx - 100, fy + 76, 200, 20, () => this.back());
       this.codeY = fy;
       if (keepFocus >= 0 && keepFocus < this.widgets.length) this.focus = keepFocus;
       else if (DL.Input.lastDevice === 'gamepad') this.focus = 0;
@@ -1460,9 +1752,11 @@
     if (quit) { quit.y = y + 108; if (N.client) quit.label = 'Disconnect'; }
     let label, enabled = true, onClick = null;
     if (N.client) { label = 'Playing on ' + clean(this.game.meta.name, 20); enabled = false; }
-    else if (N.host) { label = 'Wi-Fi code: ' + N.host.code + '  (' + (N.host.conns.size + 1) + ' playing)'; enabled = false; }
-    else { label = 'Open to Wi-Fi (multiplayer)'; onClick = async () => { await N.openToLan(this.game); this.layout(); }; }
-    this.btn(label, cx - 100, y + 80, 200, 20, onClick, { enabled });
+    else if (N.host) { label = 'Code ' + N.host.code + ' (' + (N.host.conns.size + 1) + ' on)'; enabled = false; }
+    else { label = 'Open to Wi-Fi'; onClick = async () => { await N.openToLan(this.game); this.layout(); }; }
+    if (N.client) { this.btn(label, cx - 100, y + 80, 200, 20, onClick, { enabled }); return; }
+    this.btn(label, cx - 100, y + 80, 98, 20, onClick, { enabled });
+    this.btn('Invite by code', cx + 2, y + 80, 98, 20, () => N.inviteHostDialog(this.game, () => { if (G.screen === this) this.layout(); }));
   };
 
   /* Name tags above other players */
