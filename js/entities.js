@@ -37,6 +37,10 @@
         out.push([x + x0, y, z + z0, x + x1, y + 1.5, z + z1]);
         return;
       }
+      case R.SHAPE: {
+        for (const b of S.shapeBoxes(id, m)) out.push([x + b[0] / 16, y + b[1] / 16, z + b[2] / 16, x + b[3] / 16, y + b[4] / 16, z + b[5] / 16]);
+        return;
+      }
       case R.DOOR: {
         const b = S.doorBox(m);
         out.push([x + b[0] / 16, y, z + b[1] / 16, x + b[2] / 16, y + 1, z + b[3] / 16]);
@@ -545,9 +549,13 @@
       if (this.world.difficulty === 0 && ++this.regenTimer >= 20) { this.regenTimer = 0; this.heal(1); }
       let fwd = this.moveForward, str = this.moveStrafe;
       if (this.sneaking) { fwd *= 0.3; str *= 0.3; }
+      this.speedMul = this.sprinting && !this.flying ? 1.3 : 1;
       if (this.jumping) {
         if (this.inWater || this.inLava) this.vy += 0.04;
-        else if (this.onGround && this.jumpCooldown <= 0) { this.vy = 0.42; this.jumpCooldown = 10; }
+        else if (this.onGround && this.jumpCooldown <= 0) {
+          this.vy = 0.42; this.jumpCooldown = 10;
+          if (this.sprinting) { this.vx -= Math.sin(this.yaw) * 0.2; this.vz -= Math.cos(this.yaw) * 0.2; }
+        }
       } else this.jumpCooldown = 0;
       if (this.jumpCooldown > 0) this.jumpCooldown--;
       if (this.flying) this.fly(str, fwd);

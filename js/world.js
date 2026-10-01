@@ -779,9 +779,10 @@
     for (let i = 0; i < 8; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.redstone_ore);
     for (let i = 0; i < 1; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.diamond_ore);
 
+    if (this.decorateBiomes) this.decorateBiomes(r, c, bx, bz);
     // trees
     const tn = this.gen.cont.gens[0].noise(bx * 0.02, 1.5, bz * 0.02);
-    let trees = Math.floor((tn * 0.5 + 0.5) * 5 + r.nextInt(3) - 3);
+    let trees = this.decorateBiomes ? -99 : Math.floor((tn * 0.5 + 0.5) * 5 + r.nextInt(3) - 3);
     if (biome === BI.FOREST) trees += 7;
     else if (biome === BI.SEASONAL) trees += 3;
     else if (biome === BI.TUNDRA) trees += 1;
@@ -794,8 +795,8 @@
       else this.genTree(r, x, y, z);
     }
     // flowers
-    for (let i = 0; i < 2; i++) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.dandelion);
-    if (r.nextInt(2) === 0) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.rose);
+    if (!this.decorateBiomes) for (let i = 0; i < 2; i++) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.dandelion);
+    if (!this.decorateBiomes && r.nextInt(2) === 0) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.rose);
     if (r.nextInt(4) === 0) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.brown_mushroom);
     if (r.nextInt(8) === 0) this.genPatch(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, B.red_mushroom);
     for (let i = 0; i < 10; i++) this.genReeds(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8);
@@ -803,10 +804,11 @@
     if (biome === BI.DESERT) for (let i = 0; i < 10; i++) this.genCactus(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8);
     for (let i = 0; i < 30; i++) this.genSpring(r, bx + r.nextInt(16) + 8, r.nextInt(r.nextInt(120) + 8), bz + r.nextInt(16) + 8, B.water);
     for (let i = 0; i < 12; i++) this.genSpring(r, bx + r.nextInt(16) + 8, r.nextInt(r.nextInt(r.nextInt(112) + 8) + 8), bz + r.nextInt(16) + 8, B.lava);
+    if (this.decorateCaves) this.decorateCaves(r, bx, bz);
     // snow & ice
     for (let x = bx + 8; x < bx + 24; x++) for (let z = bz + 8; z < bz + 24; z++) {
       const ch = this.getChunk(x >> 4, z >> 4);
-      if (!ch || !ch.biomes || ch.biomes[((z & 15) << 4) | (x & 15)] !== BI.TUNDRA) continue;
+      if (!ch || !ch.biomes || !(S.SNOWY ? S.SNOWY[ch.biomes[((z & 15) << 4) | (x & 15)]] : ch.biomes[((z & 15) << 4) | (x & 15)] === BI.TUNDRA)) continue;
       const y = this.topSolidY(x, z) - 1;
       if (y <= 0 || y >= CH - 1) continue;
       const b = this.getBlock(x, y, z);
@@ -816,13 +818,15 @@
     // animals
     const cx8 = bx + 8, cz8 = bz + 8;
     if (r.nextInt(biome === BI.DESERT ? 40 : 9) === 0) {
-      const types = ['pig', 'pig', 'cow', 'cow', 'sheep', 'sheep', 'chicken', 'chicken'];
+      const mush = biome === BI.MUSHROOM_FIELDS;
+      const types = mush ? ['mooshroom'] : ['pig', 'pig', 'cow', 'cow', 'sheep', 'sheep', 'chicken', 'chicken'];
       const type = types[r.nextInt(types.length)];
       const n = 2 + r.nextInt(3);
       for (let i = 0; i < n; i++) {
         const x = cx8 + r.nextInt(16), z = cz8 + r.nextInt(16);
         const y = this.topSolidY(x, z);
-        if (this.getBlock(x, y - 1, z) !== B.grass) continue;
+        const gb = this.getBlock(x, y - 1, z);
+        if (gb !== B.grass && !(mush && gb === B.mycelium) && gb !== B.podzol) continue;
         const k = ckey(x >> 4, z >> 4);
         if (!this.pendingAnimals) this.pendingAnimals = new Map();
         if (!this.pendingAnimals.has(k)) this.pendingAnimals.set(k, []);

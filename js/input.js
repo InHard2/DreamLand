@@ -8,11 +8,11 @@
 
   In.DEFAULT_BINDS = {
     forward: 'KeyW', left: 'KeyA', back: 'KeyS', right: 'KeyD', jump: 'Space', sneak: 'ShiftLeft',
-    inventory: 'KeyE', drop: 'KeyQ', chat: 'KeyT', fog: 'KeyF', perspective: 'F5', debug: 'F3', hideGui: 'F1', screenshot: 'F2'
+    inventory: 'KeyE', drop: 'KeyQ', chat: 'KeyT', fog: 'KeyF', perspective: 'F5', debug: 'F3', hideGui: 'F1', screenshot: 'F2', sprint: 'KeyR'
   };
   In.BIND_NAMES = {
     forward: 'Forward', left: 'Left', back: 'Back', right: 'Right', jump: 'Jump', sneak: 'Sneak', inventory: 'Inventory',
-    drop: 'Drop', chat: 'Chat', fog: 'Toggle Fog', perspective: 'Perspective', debug: 'Debug Info', hideGui: 'Hide GUI', screenshot: 'Screenshot'
+    drop: 'Drop', chat: 'Chat', fog: 'Toggle Fog', perspective: 'Perspective', debug: 'Debug Info', hideGui: 'Hide GUI', screenshot: 'Screenshot', sprint: 'Sprint'
   };
   In.binds = Object.assign({}, In.DEFAULT_BINDS);
   In.keys = new Set();
@@ -65,11 +65,21 @@
 
     window.addEventListener('keydown', (e) => {
       if (document.activeElement === ti) return;
+      // a text box is open but lost the keyboard (a click elsewhere, a frame switch): hand the keys back to it
+      if (In.wantsText && In.wantsText() && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Enter')) {
+        e.preventDefault();
+        ti.style.pointerEvents = 'auto'; ti.focus();
+        if (e.key === 'Enter') { emit('textkey', { key: 'Enter' }); return; }
+        ti.value = e.key === 'Backspace' ? ti.value.slice(0, -1) : ti.value + e.key;
+        try { ti.setSelectionRange(ti.value.length, ti.value.length); } catch (err) { /* ignore */ }
+        emit('textinput', { value: ti.value });
+        return;
+      }
       In.lastDevice = 'kbm';
       const block = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'F1', 'F2', 'F3', 'F5', 'Slash', 'Quote', 'Backspace'];
       if (block.includes(e.code) || (e.ctrlKey && e.code === 'KeyS')) e.preventDefault();
       if (!e.repeat) In.keys.add(e.code);
-      emit('keydown', { code: e.code, key: e.key, repeat: e.repeat, shift: e.shiftKey, ctrl: e.ctrlKey });
+      emit('keydown', { code: e.code, key: e.key, repeat: e.repeat, shift: e.shiftKey, ctrl: e.ctrlKey, t: e.timeStamp || performance.now() });
     });
     window.addEventListener('keyup', (e) => {
       In.keys.delete(e.code);
@@ -87,6 +97,8 @@
       if (e.button === 2) In.mouse.right = true;
       if (e.button === 1) { In.mouse.middle = true; e.preventDefault(); }
       emit('mousedown', { x, y, button: e.button, shift: e.shiftKey });
+      // a text field just took the keyboard: keep the click from moving focus back to the canvas
+      if (document.activeElement === ti) e.preventDefault();
     });
     window.addEventListener('mouseup', (e) => {
       const [x, y] = pos(e);
@@ -222,10 +234,11 @@
   /** Per-frame touch evaluation. */
   In.updateTouch = function () {
     const T = In.touch;
-    T.move = [0, 0];
+    T.move = [0, 0]; T.sprint = false;
     if (T.joy) {
       let jx = (T.joy.x - T.joy.cx) / T.joy.r, jy = (T.joy.y - T.joy.cy) / T.joy.r;
       const l = Math.hypot(jx, jy);
+      T.sprint = l > 1.3 && -jy / l > 0.8; // pushed past the ring, straight ahead
       if (l > 1) { jx /= l; jy /= l; }
       if (l > 0.12) T.move = [jx, -jy];
     }

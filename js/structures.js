@@ -160,11 +160,14 @@
   function village(ctx) {
     const { r, x: cx, z: cz } = ctx;
     const b = ctx.biome(cx, cz), g0 = ctx.h(cx, cz);
-    if (g0 < SEA || g0 > 100 || b === BI.FOREST) return null;
-    const desert = b === BI.DESERT, snowy = b === BI.TUNDRA;
+    const VB = [BI.PLAINS, BI.SUNFLOWER_PLAINS, BI.MEADOW, BI.DESERT, BI.TUNDRA, BI.SNOWY_TAIGA, BI.TAIGA, BI.SAVANNA, BI.SAVANNA_PLATEAU, BI.SEASONAL];
+    if (g0 < SEA || g0 > 100 || !VB.includes(b)) return null;
+    const desert = b === BI.DESERT, snowy = b === BI.TUNDRA || b === BI.SNOWY_TAIGA, taiga = b === BI.TAIGA, savanna = b === BI.SAVANNA || b === BI.SAVANNA_PLATEAU;
     const M = desert ? { base: B.sandstone, floor: B.sandstone, wall: B.sandstone, beam: B.chiseled_sandstone, roof: B.sandstone, path: B.sandstone }
-      : snowy ? { base: B.cobblestone, floor: B.dark_planks, wall: B.dark_planks, beam: B.dark_log, roof: B.dark_planks, path: B.dirt_path, snow: true }
-        : { base: B.cobblestone, floor: B.planks, wall: B.planks, beam: B.log, roof: B.planks, path: B.dirt_path };
+      : snowy ? { base: B.cobblestone, floor: B.spruce_planks, wall: B.spruce_planks, beam: B.spruce_log, roof: B.spruce_planks, path: B.dirt_path, snow: true }
+        : taiga ? { base: B.cobblestone, floor: B.spruce_planks, wall: B.spruce_planks, beam: B.spruce_log, roof: B.spruce_planks, path: B.dirt_path }
+          : savanna ? { base: B.cobblestone, floor: B.acacia_planks, wall: B.acacia_planks, beam: B.acacia_log, roof: B.acacia_planks, path: B.dirt_path }
+            : { base: B.cobblestone, floor: B.planks, wall: B.planks, beam: B.log, roof: B.planks, path: B.dirt_path };
     const pl = new Plan('village');
     const y = g0 + 1;
     // well
@@ -255,7 +258,7 @@
 
   function jungleTemple(ctx) {
     const { r, x: cx, z: cz } = ctx;
-    if (ctx.biome(cx, cz) !== BI.SEASONAL) return null;
+    if (![BI.JUNGLE, BI.BAMBOO_JUNGLE, BI.SPARSE_JUNGLE].includes(ctx.biome(cx, cz))) return null;
     const y = ctx.h(cx, cz) + 1;
     if (y < SEA) return null;
     const pl = new Plan('jungle_temple');
@@ -276,7 +279,7 @@
 
   function witchHut(ctx) {
     const { r, x: cx, z: cz } = ctx;
-    if (ctx.biome(cx, cz) !== BI.FOREST) return null;
+    if (ctx.biome(cx, cz) !== BI.SWAMP && ctx.biome(cx, cz) !== BI.MANGROVE_SWAMP) return null;
     const g = ctx.h(cx, cz);
     if (g < SEA - 1) return null;
     const pl = new Plan('witch_hut');
@@ -298,7 +301,7 @@
 
   function igloo(ctx) {
     const { r, x: cx, z: cz } = ctx;
-    if (ctx.biome(cx, cz) !== BI.TUNDRA) return null;
+    if (ctx.biome(cx, cz) !== BI.TUNDRA && ctx.biome(cx, cz) !== BI.SNOWY_TAIGA) return null;
     const y = ctx.h(cx, cz) + 1;
     if (y < SEA) return null;
     const pl = new Plan('igloo');
@@ -321,7 +324,7 @@
   function outpost(ctx) {
     const { r, x: cx, z: cz } = ctx;
     const b = ctx.biome(cx, cz);
-    if (b !== BI.PLAINS && b !== BI.DESERT && b !== BI.TUNDRA) return null;
+    if (![BI.PLAINS, BI.DESERT, BI.TUNDRA, BI.SAVANNA, BI.MEADOW, BI.TAIGA, BI.GROVE, BI.SUNFLOWER_PLAINS].includes(b)) return null;
     const y = ctx.h(cx, cz) + 1;
     if (y < SEA || y > 100) return null;
     const pl = new Plan('outpost');
@@ -353,7 +356,7 @@
 
   function mansion(ctx) {
     const { r, x: cx, z: cz } = ctx;
-    if (ctx.biome(cx, cz) !== BI.FOREST) return null;
+    if (ctx.biome(cx, cz) !== BI.DARK_FOREST && ctx.biome(cx, cz) !== BI.PALE_GARDEN) return null;
     const y = ctx.h(cx, cz) + 1;
     if (y < SEA || y > 100) return null;
     const pl = new Plan('mansion');
@@ -532,7 +535,7 @@
   function buriedTreasure(ctx) {
     const { r, x: cx, z: cz } = ctx;
     const g = ctx.h(cx, cz);
-    if (g < SEA - 2 || g > SEA + 1 || ctx.biome(cx, cz) === BI.TUNDRA) return null;
+    if (g < SEA - 2 || g > SEA + 1 || S.SNOWY[ctx.biome(cx, cz)]) return null;
     const pl = new Plan('buried_treasure');
     pl.chest(cx, g - 2, cz, 'buried', [4, 8], r, [DL.Items.stack(388, 2 + r.nextInt(4))]);
     return pl;

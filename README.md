@@ -49,5 +49,11 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - **Night sky**: shooting stars (make a wish!) and auroras over snowy biomes.
 - **Achievements**: 25 of them, with toasts. Browse them from the pause menu.
 
+## Modern biomes
+Over 40 biomes from today's Minecraft: cherry groves, mangrove swamps, badlands (with eroded spires and wooded plateaus), savannas, jungles and bamboo jungles, dark forests, the pale garden, birch and old growth forests, taigas and giant spruce, meadows, groves, snowy slopes, frozen/jagged/stony peaks, ice spikes, mushroom fields, flower forests, sunflower plains, rivers, beaches and warm, deep and frozen oceans with icebergs. Underground you can find lush caves, dripstone caves and the deep dark. Each biome has its own blocks, trees, plants and animals (mooshrooms included), and villages take on spruce or acacia styles. Press F3 to see which biome you are in.
+
+## Creative inventory
+Tabs like modern Minecraft: Building, Colored, Natural, Functional and Redstone blocks, Tools, Combat, Food, Ingredients, Spawn Eggs (every mob), Search and the Survival Inventory. The **World & Weather** tab sets the time, toggles flying and has **Rain: ON/OFF** to keep the sky clear for good.
+
 ## Controls
-WASD move · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Touch and controller layouts are listed in *Help & Controls* in-game.
+WASD move · double-tap W or R sprint · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Sprint on touch by pushing the stick past its ring, on a controller by clicking the left stick. Touch and controller layouts are listed in *Help & Controls* in-game.

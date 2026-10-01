@@ -646,8 +646,9 @@
         const biome = c.biomes ? c.biomes[((z & 15) << 4) | (x & 15)] : 0;
         if (dim === 0) {
           type = weighted(r, OW_HOSTILE);
-          if (type === 'zombie' && biome === S.BIOME.DESERT) type = 'husk';
-          if (type === 'skeleton' && biome === S.BIOME.TUNDRA) type = 'stray';
+          if (biome === S.BIOME.MUSHROOM_FIELDS) continue; // no monsters on the mushroom islands
+          if (type === 'zombie' && (biome === S.BIOME.DESERT || biome === S.BIOME.BADLANDS || biome === S.BIOME.ERODED_BADLANDS)) type = 'husk';
+          if (type === 'skeleton' && S.SNOWY[biome]) type = 'stray';
           if (type === 'slime' && y > 40) continue;
         } else if (dim === 1) type = weighted(r, NETHER_HOSTILE);
         else if (dim === 2) { if (r.nextInt(4)) continue; type = 'enderman'; }
@@ -686,14 +687,19 @@
       const ground = dim === 3 ? B.aether_grass : B.grass;
       const g = world.getBlock(x, y - 1, z);
       const biome = c.biomes ? c.biomes[((z & 15) << 4) | (x & 15)] : 0;
-      if (g !== ground && !(dim === 0 && (g === B.sand || g === B.snow_layer || g === B.snow_block) && (biome === S.BIOME.DESERT || biome === S.BIOME.TUNDRA))) return;
+      const BIm = S.BIOME;
+      if (g !== ground && !(dim === 0 && (g === B.mycelium || g === B.podzol || ((g === B.sand || g === B.red_sand || g === B.snow_layer || g === B.snow_block) && (biome === BIm.DESERT || S.SNOWY[biome] || biome === BIm.BADLANDS))))) return;
       if (world.getSky(x, y, z) < 12) return;
       if ((x - player.x) ** 2 + (z - player.z) ** 2 < 24 * 24) return;
       let types;
       if (dim === 3) types = ['moa', 'phyg', 'flying_cow', 'aerbunny', 'sheepuff', 'moa'];
-      else if (biome === S.BIOME.DESERT) types = ['rabbit'];
-      else if (biome === S.BIOME.TUNDRA) types = ['polar_bear', 'rabbit', 'rabbit'];
-      else if (biome === S.BIOME.FOREST) types = ['pig', 'cow', 'sheep', 'chicken', 'wolf', 'wolf'];
+      else if (biome === BIm.MUSHROOM_FIELDS) types = ['mooshroom'];
+      else if (biome === BIm.DESERT || biome === BIm.BADLANDS) types = ['rabbit'];
+      else if (biome === BIm.ICE_SPIKES || biome === BIm.FROZEN_OCEAN) types = ['polar_bear', 'rabbit'];
+      else if (S.SNOWY[biome]) types = ['polar_bear', 'rabbit', 'rabbit', 'wolf'];
+      else if (biome === BIm.FOREST || biome === BIm.TAIGA || biome === BIm.OLD_GROWTH_TAIGA || biome === BIm.GROVE) types = ['pig', 'cow', 'sheep', 'chicken', 'wolf', 'wolf', 'rabbit'];
+      else if (biome === BIm.MEADOW || biome === BIm.CHERRY_GROVE) types = ['sheep', 'rabbit', 'pig', 'cow'];
+      else if (biome === BIm.SAVANNA || biome === BIm.SAVANNA_PLATEAU) types = ['cow', 'sheep', 'chicken'];
       else types = ['pig', 'cow', 'sheep', 'chicken', 'rabbit'];
       const type = types[r.nextInt(types.length)];
       for (let k = 0; k < 3; k++) {

@@ -128,11 +128,19 @@
     wt.thunderT = kind === 'thunder' ? 1 : 0;
     wt.timer = ticks || (kind === 'clear' ? 12000 + Math.floor(rnd() * 24000) : 6000 + Math.floor(rnd() * 9000));
   };
+  /** Rain OFF (creative World & Weather tab): clear skies until it is turned back on. */
+  X.setRainEnabled = function (g, on) {
+    if (!g.meta) return;
+    g.meta.noRain = !on;
+    const wt = weatherOf(g);
+    if (!on && wt) { wt.target = 0; wt.thunderT = 0; wt.rain = 0; wt.thunder = 0; wt.timer = 24000; }
+    g.chatMessage(on ? 'Rain is back on' : 'Rain turned off: clear skies from now on');
+  };
   function biomeAt(w, x, z) {
     const c = w.getChunk(x >> 4, z >> 4);
     return c && c.biomes ? c.biomes[((z & 15) << 4) | (x & 15)] : 0;
   }
-  const precip = (w, x, z, y) => { const b = biomeAt(w, x, z); return b === S.BIOME.DESERT ? 0 : (b === S.BIOME.TUNDRA || y > 100) ? 2 : 1; };
+  const precip = (w, x, z, y) => { const b = biomeAt(w, x, z); return S.DRY && S.DRY[b] ? 0 : ((S.SNOWY ? S.SNOWY[b] : b === S.BIOME.TUNDRA) || y > 100) ? 2 : 1; };
   const bolts = [];
   X.strike = function (g, x, y, z, visualOnly) {
     const w = g.world, p = g.player;
@@ -171,7 +179,8 @@
     if (!wt) return;
     if (wt.flash > 0) wt.flash--;
     const authority = !(DL.Net && DL.Net.client);
-    if (authority && --wt.timer <= 0) {
+    if (authority && g.meta && g.meta.noRain) { wt.target = 0; wt.thunderT = 0; wt.timer = 24000; }
+    else if (authority && --wt.timer <= 0) {
       if (wt.target) X.setWeather(g, 'clear'); else X.setWeather(g, rnd() < 0.35 ? 'thunder' : 'rain');
     }
     const on = canRain(w);
@@ -350,7 +359,7 @@
     this.flush('quads', { mvp: this.mvp });
     // aurora over snowy lands
     const p = g.player;
-    const tundra = biomeAt(world, Math.floor(p.x), Math.floor(p.z)) === S.BIOME.TUNDRA && dim === 0;
+    const bb = biomeAt(world, Math.floor(p.x), Math.floor(p.z)), tundra = (S.SNOWY ? S.SNOWY[bb] === 1 : bb === S.BIOME.TUNDRA) && dim === 0;
     this._aurora = lerp(this._aurora || 0, tundra && (!world.weather || world.weather.rain < 0.3) ? 1 : 0, 0.02);
     if (this._aurora > 0.02) {
       const t = now / 1000;
@@ -686,6 +695,7 @@
     if (cmd === 'weather' && !(DL.Net && DL.Net.client)) {
       const k = (args[1] || '').toLowerCase();
       if (!['clear', 'rain', 'thunder'].includes(k)) { this.chatMessage('§cUsage: /weather <clear|rain|thunder>'); return; }
+      if (k !== 'clear' && this.meta && this.meta.noRain) this.meta.noRain = false;
       X.setWeather(this, k, args[2] ? Math.max(20, parseInt(args[2], 10) * 20 || 0) : undefined);
       this.chatMessage('Weather set to ' + k);
       return;

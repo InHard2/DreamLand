@@ -692,6 +692,7 @@
     padButton(b) { if (b === DL.Input.GPB.B) this.game.setScreen(null); }
   }
   G.ChatScreen = ChatScreen;
+  DL.Input.wantsText = () => !!(G.screen && (G.screen.activeField || G.screen instanceof ChatScreen));
 
   /* ------------------------------------------------------------ */
   /* Containers                                                   */
@@ -1290,7 +1291,7 @@
     const fi = Math.floor((yawDeg + 180 + 45) / 90) % 4;
     const bx = Math.floor(p.x), by = Math.floor(p.y), bz = Math.floor(p.z);
     const c = w.getChunk(bx >> 4, bz >> 4);
-    const biome = c && c.biomes ? DL.S.BIOME_NAMES[c.biomes[((bz & 15) << 4) | (bx & 15)]] : '?';
+    const biome = DL.biomeNameAt ? DL.biomeNameAt(w, bx, by, bz) : c && c.biomes ? DL.S.BIOME_NAMES[c.biomes[((bz & 15) << 4) | (bx & 15)]] : '?';
     const lines = [
       'DreamLand Alpha v1.2.6 (' + game.fps + ' fps, ' + w.stats.meshJobs + ' chunk updates)',
       'C: ' + r.stats.drawn + '/' + r.stats.sections + '. F: ' + Math.round(r.stats.faces) + ', Q: ' + w.dirtySections.size,

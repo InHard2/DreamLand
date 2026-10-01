@@ -397,6 +397,7 @@
       if (type === 'textkey') { if (scr && scr.textKey) scr.textKey(d.key); return; }
       if (type === 'keydown') {
         if (d.code === 'F11') { this.toggleFullscreen(); return; }
+        if (d.code === In.binds.forward && !d.repeat && !scr) { const now = d.t || performance.now(); if (now - (this._fwdTap || 0) < 300) this.sprintTap = true; this._fwdTap = now; }
         if (scr) { scr.key(d.code, d.key); return; }
         if (!this.inGame) return;
         this.gameKey(d.code, d.ctrl);
@@ -456,6 +457,7 @@
         case P.LT: this.usePressed = true; this.useTimer = 0; break;
         case P.X: this.usePressed = true; this.useTimer = 0; break;
         case P.RS: this.sneakToggle = !this.sneakToggle; break;
+        case P.LS: this.padSprint = !this.padSprint; break;
         case P.UP: this.thirdPerson = (this.thirdPerson + 1) % 3; break;
         case P.DOWN: this.dropHeld(true); break;
         case P.LEFT: this.selectSlot((p.selected + 8) % 9); break;
@@ -691,6 +693,12 @@
       const l = Math.hypot(mf, ms);
       if (l > 1) { mf /= l; ms /= l; }
       this.moveF = mf; this.moveS = ms;
+      // sprint: double-tap forward, press the sprint key, push the touch stick past its ring, or click the left stick
+      const sk = In.down('sprint');
+      if (sk && !this._sprKeyWas) this.sprintTap = true;
+      this._sprKeyWas = sk;
+      if (mf <= 0.5 && !sk) { this.sprintTap = false; this.padSprint = false; }
+      this.sprintHeld = sk || this.sprintTap || T.sprint || this.padSprint;
       this.jumpHeld = In.down('jump') || T.jump || In.padDown(In.GPB.A);
       this.sneakHeld = In.down('sneak') || this.sneakToggle;
       this.attackHeld = (In.mouse.left && In.locked) || (In.lastDevice === 'touch' && T.breaking) || In.padValue(In.GPB.RT) > 0.5;
@@ -744,6 +752,10 @@
       this._jumpWas = p.jumping;
       if (!p.creative) p.flying = false;
       p.sneaking = !scr && this.sneakHeld && !p.inWater;
+      const wantSprint = (!scr || scr instanceof G.ChatScreen) && this.sprintHeld && p.moveForward > 0.5 && !p.sneaking && !p.inWater && !p.inLava;
+      if (wantSprint && !p.sprinting && !p.collidedH) p.sprinting = true;
+      else if (p.sprinting && (!wantSprint || (p.collidedH && !p.flying))) p.sprinting = false;
+      p.sprintFly = p.sprinting && p.flying;
       // touch auto-jump
       if (this.touchOn() && this.settings.autoJump && p.onGround && p.collidedH && (p.moveForward > 0.3) && !p.sneaking) p._autoJump = 3;
       if (p._autoJump > 0) { p.jumping = true; p._autoJump--; }
@@ -1251,6 +1263,8 @@
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       // camera effects
       let fov = 30 + st.fov * 80;
+      this._sprintFov = (this._sprintFov || 1) + ((p.sprinting && p.health > 0 ? 1.13 : 1) - (this._sprintFov || 1)) * 0.2;
+      fov *= this._sprintFov;
       if (underwater) fov *= 60 / 70;
       if (p.health <= 0) fov /= (1 - 500 / (p.deathTime + pt + 500)) * 2 + 1;
       let roll = 0;
