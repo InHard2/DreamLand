@@ -41,7 +41,6 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - **Fireworks**: craft paper + gunpowder -> 3 rockets. Nine burst shapes (star, heart, creeper face, smiley, ring, willow...), twinkles, and rockets boost you while gliding with an elytra. `/fireworks` starts a show.
 - **Grappling hook**: stick, string and an iron ingot. Use it to zip to blocks or yank mobs towards you; use again to let go.
 - **Dynamic lights**: holding a torch, glowstone, lava bucket etc. lights up the world around you.
-- **Living world**: leaves, grass, flowers and crops sway in the wind; water ripples and shimmers.
 - **Night sky**: shooting stars (make a wish!) and auroras over snowy biomes.
 - **Achievements**: 25 of them, with toasts. Browse them from the pause menu.
 

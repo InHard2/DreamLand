@@ -50,7 +50,7 @@ void main(){
   if (uDyn2.w > 0.0) blk = max(blk, uDyn2.w - length(vPos - uDyn2.xyz) * 0.8);
   float L = max(sky - uSkySub, blk);
   vec3 c = t.rgb * vShade * bright(max(L, 0.0));
-  if (floor(vFlag * 255.0 + 0.5) == 3.0) c *= 1.0 + 0.07 * sin(uTime * 2.2 + vPos.x * 2.1 + vPos.z * 1.7);
+  if (uTime >= 0.0 && floor(vFlag * 255.0 + 0.5) == 3.0) c *= 1.0 + 0.07 * sin(uTime * 2.2 + vPos.x * 2.1 + vPos.z * 1.7);
   c = mix(c, uTint.rgb, uTint.a);
   float fog = uFogMode > 0.5 ? clamp(exp(-uFogDensity * vDist), 0.0, 1.0) : clamp((uFog.y - vDist)/(uFog.y - uFog.x), 0.0, 1.0);
   gl_FragColor = vec4(mix(uFogColor, c, fog), t.a);
@@ -408,7 +408,7 @@ void main(){
     gl.uniform1f(sh.u.uFogDensity, this.fogDensity);
     gl.uniform1f(sh.u.uAmb, this.ambient || 0);
     const cam = this.cam, dw = this.dynWorld, dw2 = this.dynWorld2;
-    gl.uniform1f(sh.u.uTime, this.waving === false ? -1 : (performance.now() / 1000) % 3600);
+    gl.uniform1f(sh.u.uTime, this.waving === true ? (performance.now() / 1000) % 3600 : -1); // swaying/rippling is off unless enabled
     gl.uniform3f(sh.u.uCamPos, cam.x, cam.y, cam.z);
     if (dw && dw[3] > 0) gl.uniform4f(sh.u.uDyn, dw[0] - cam.x, dw[1] - cam.y, dw[2] - cam.z, dw[3]); else gl.uniform4f(sh.u.uDyn, 0, 0, 0, 0);
     if (dw2 && dw2[3] > 0) gl.uniform4f(sh.u.uDyn2, dw2[0] - cam.x, dw2[1] - cam.y, dw2[2] - cam.z, dw2[3]); else gl.uniform4f(sh.u.uDyn2, 0, 0, 0, 0);
