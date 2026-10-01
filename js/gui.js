@@ -773,18 +773,34 @@
       this.drawSlots(mx, my);
       this.drawForeground(mx, my);
       this.drawCursorItem(mx, my);
+      this.drawCloseButton(mx, my);
+    }
+    /** Touch players get a close button in the panel's top-right corner. */
+    closeRect() { return [this.px + this.pw - 16, this.py + 3, 13, 12]; }
+    drawCloseButton(mx, my) {
+      if (DL.Input.lastDevice !== 'touch') return;
+      const [x, y, w, h] = this.closeRect();
+      const hover = mx >= x && my >= y && mx < x + w && my < y + h;
+      G.rect(x, y, w, h, '#373737');
+      G.rect(x + 1, y + 1, w - 2, h - 2, hover ? '#A06060' : '#8B8B8B');
+      G.textC('x', x + w / 2 + 0.5, y + 2, '#FFFFFF');
     }
     drawBackground() { }
     drawForeground() { }
     mouseDown(x, y, button, shift) {
       const p = this.player;
+      const touch = DL.Input.lastDevice === 'touch';
+      if (touch) {
+        const [cx, cy, cw, ch] = this.closeRect();
+        if (x >= cx && y >= cy && x < cx + cw && y < cy + ch) { DL.Audio.play('click', null, null, null, 1, 1); this.game.setScreen(null); return; }
+      }
       const s = this.slotAt(x, y);
       const inside = x >= this.px && y >= this.py && x < this.px + this.pw && y < this.py + this.ph;
       if (!s) {
         if (!inside && p.cursor) {
           if (button === 0) { p.dropItem(p.cursor); p.cursor = null; }
           else if (button === 2) { p.dropItem(I().stack(p.cursor.id, 1, p.cursor.dmg)); p.cursor.count--; if (p.cursor.count <= 0) p.cursor = null; }
-        }
+        } else if (!inside && touch) this.game.setScreen(null);
         return;
       }
       this.clickSlot(s, button, shift);
