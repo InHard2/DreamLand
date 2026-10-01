@@ -397,7 +397,8 @@
     if (p.gliding && (p.onGround || p.inWater || !ely || p.flying)) p.gliding = false;
     tick.call(this);
     if (this.world !== w || !this.inGame || this._traveling) return;
-    if (G.screen && G.screen.pauses) return;
+    if (G.screen && G.screen.pauses && !(DL.Net && DL.Net.active())) return;
+    if (w.remote) return;
     if (p.health > 0) {
       // any portal block touching the player's body counts
       let inP = 0, meta = 0;

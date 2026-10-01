@@ -481,28 +481,42 @@
   World.prototype.updateChunks = function (px, pz, budgetMs) {
     const t0 = performance.now();
     const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16);
-    const R = this.renderDist, G = R + 4;
+    const R = this.renderDist, G = R + (this.remote ? 2 : 4);
     this.pool.pumpFallback(Math.min(8, budgetMs / 2));
-    if (!this.lastCenter || this.lastCenter[0] !== pcx || this.lastCenter[1] !== pcz) {
+    // extra centres keep the world loaded around remote (multiplayer) players
+    const centers = [[pcx, pcz, G]].concat(this.extraCenters || []);
+    const ckeyStr = R + '|' + centers.map(c => c.join(',')).join(';');
+    if (!this.lastCenter || this._centersKey !== ckeyStr) {
       this.lastCenter = [pcx, pcz];
-      const w = [];
-      for (let dx = -G; dx <= G; dx++) for (let dz = -G; dz <= G; dz++) {
-        const d2 = dx * dx + dz * dz;
-        if (d2 <= (G + 0.5) * (G + 0.5)) w.push([pcx + dx, pcz + dz, d2]);
+      this._centersKey = ckeyStr;
+      const best = new Map();
+      for (const [ox, oz, g] of centers) {
+        for (let dx = -g; dx <= g; dx++) for (let dz = -g; dz <= g; dz++) {
+          const d2 = dx * dx + dz * dz;
+          if (d2 > (g + 0.5) * (g + 0.5)) continue;
+          const k = ckey(ox + dx, oz + dz);
+          const pd = (ox + dx - pcx) ** 2 + (oz + dz - pcz) ** 2;
+          const cur = best.get(k);
+          if (!cur || cur[2] > pd) best.set(k, [ox + dx, oz + dz, Math.min(pd, d2 + (ox === pcx && oz === pcz ? 0 : 4))]);
+        }
       }
+      const w = Array.from(best.values());
       w.sort((a, b) => a[2] - b[2]);
       this.wanted = w;
-      // unload far chunks
-      const U = G + 2;
+      // unload chunks far from every centre
       for (const c of this.chunks.values()) {
-        const dx = c.cx - pcx, dz = c.cz - pcz;
-        if (dx * dx + dz * dz > (U + 0.5) * (U + 0.5)) this.unloadChunk(c);
+        let keep = false;
+        for (const [ox, oz, g] of centers) {
+          const dx = c.cx - ox, dz = c.cz - oz, U = g + 2;
+          if (dx * dx + dz * dz <= (U + 0.5) * (U + 0.5)) { keep = true; break; }
+        }
+        if (!keep) this.unloadChunk(c);
       }
       // re-evaluate mesh readiness for chunks in range
       for (const c of this.chunks.values()) if (c.lit && !c.meshReady) this.checkQueue.add(c);
     }
     // request generation / loading
-    const cap = this.pool.capacity();
+    const cap = this.remote ? 40 : this.pool.capacity();
     for (const [cx, cz] of this.wanted) {
       if (this.pendingGen.size >= cap + 4) break;
       const k = ckey(cx, cz);

@@ -729,7 +729,7 @@
       this.tickCount++;
       const w = this.world, p = this.player;
       const scr = G.screen;
-      if (scr && scr.pauses) return;
+      if (scr && scr.pauses && !(DL.Net && DL.Net.active())) return;
       this.prevHealth = p.health > (this.prevHealth || 0) ? p.health : this.prevHealth;
       if (p.hurtResist <= 10) this.prevHealth = p.health;
       // player controls

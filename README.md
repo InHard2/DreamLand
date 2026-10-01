@@ -21,5 +21,13 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - **New creatures**: villager, witch, pillager, vindicator, iron golem, wolf (tame with bones), rabbit, slime, enderman, bat, polar bear, husk, stray, drowned, zombie pigman, piglin, wither skeleton, ghast, blaze, magma cube, shulker, endermite, silverfish, guardian, Ender Dragon and end crystals, plus the Aether mobs.
 - **Commands**: `/dimension <overworld|nether|end|aether>`, `/locate <structure>`, `/summon <mob>`, `/give <item>`.
 
+## Multiplayer (same Wi-Fi)
+
+- **Host:** open your world, press Pause and choose **Open to Wi-Fi**. You get a 4-digit join code.
+- **Friends:** on the title screen choose **Multiplayer**, pick the game and type the code.
+- Everyone must be on the same Wi-Fi network: the connection is a direct, encrypted WebRTC link that only accepts local-network addresses (no internet relay servers).
+- Games are discovered through the artifact page's live room, so friends need access to the same DreamLand artifact.
+- The host's world is the authority: every guest action is validated, range-checked and rate-limited; only the host can run commands and take everyone through portals.
+
 ## Controls
 WASD move · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Touch and controller layouts are listed in *Help & Controls* in-game.
