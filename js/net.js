@@ -1035,7 +1035,7 @@
     lost(reason) {
       if (N.client !== this) return;
       N.client = null;
-      if (this.leaving) return;
+      if (this.leaving || !this.started) return; // still joining: N.join reports it
       const g = this.game;
       if (g.world) { for (const c of g.world.chunks.values()) g.renderer.freeChunk(c); g.world.destroy(); }
       g.world = null; g.player = null; g.loading = null; g.inGame = false;
@@ -1054,7 +1054,7 @@
     N.host = h;
     await h.start();
     game.chatMessage('§aLocal game opened! §fFriends on the same Wi-Fi can join from Multiplayer with code §e' + h.code);
-    if (L.kind === 'local') game.chatMessage('§7(Running outside the artifact: only other tabs on this device can see it.)');
+    if (L.kind === 'local') game.chatMessage('§c(The shared lobby is not available here, so only this device can see your game. Sign in and open the link shared with your friends.)');
     return h;
   };
   N.join = async function (game, gameEntry, code, onStatus) {
@@ -1074,7 +1074,7 @@
     const sdp = lanOnly(pc.localDescription.sdp);
     const packed = packSdp(sdp);
     if (!sdp || !packed || !/a=candidate:/.test(sdp)) { link.close(); onStatus('No local network found - connect to Wi-Fi'); return false; }
-    await room.presence({ dl: { v: PROTO, join: { to: hostPeer, sdp: packed, k } } });
+    try { await room.presence({ dl: { v: PROTO, join: { to: hostPeer, sdp: packed, k } } }); } catch (e) { link.close(); onStatus('The lobby refused the request, try again'); return false; }
     onStatus('Asking the host to let you in...');
     const ok = await new Promise((res) => {
       let done = false;
@@ -1384,46 +1384,62 @@
         list.push({ peer: p.peer, by: p.by, world: clean(dl.host.n, 32) || 'World', players: isInt(dl.host.p, 1, 99) ? dl.host.p : 1 });
       }
       this.games = list.slice(0, 5);
+      this.others = this.L.room.peers().filter(p => !p.sameTab && p.kind !== 'agent').length;
       if (this.sel && !this.games.some(g => g.peer === this.sel.peer)) this.sel = null;
-      if (!this.sel && this.games.length === 1) this.sel = this.games[0];
-      if (!this.joining) this.status = this.games.length ? 'Pick a game and type its 4-digit code' : 'No games found yet. On the host: Pause > Open to Wi-Fi';
+      if (!this.sel) this.picked = false;
+      if (!this.picked) this.sel = this.games.length === 1 ? this.games[0] : null;
+      if (!this.joining) this.status = this.lobbyStatus();
       this.layout();
     }
+    lobbyStatus() {
+      if (this.games.length) return this.games.length > 1 && !this.sel ? 'Type the code and press Join (or tap a game first)' : 'Type the 4-digit code and press Join';
+      if (this.L && this.L.kind === 'local') return 'Shared lobby unavailable here: sign in and open the link your friend shared';
+      if (this.others) return this.others + (this.others === 1 ? ' friend is' : ' friends are') + ' here, but no game is open yet. Host: Pause > Open to Wi-Fi';
+      return 'Nobody else has DreamLand open yet. Open the same link on both devices';
+    }
+    canJoin() { return /^\d{4}$/.test(this.field.value) && !this.joining; }
     layout() {
-      const cx = G.W / 2, y0 = 44;
+      const cx = G.W / 2, y0 = 52;
       const keepFocus = this.focus;
       this.widgets = [];
       this.games.forEach((gm, i) => {
         const label = (this.sel && this.sel.peer === gm.peer ? '> ' : '') + gm.world + ' - ' + N.nameOf(gm.by) + ' (' + gm.players + ' playing)';
-        this.btn(label, cx - 120, y0 + i * 24, 240, 20, () => { this.sel = gm; this.layout(); });
+        this.btn(label, cx - 120, y0 + i * 24, 240, 20, () => { this.sel = gm; this.picked = true; this.status = this.lobbyStatus(); this.layout(); });
       });
       const fy = y0 + Math.max(1, this.games.length) * 24 + 16;
       this.field.x = cx - 120 + 80; this.field.y = fy;
       this.widgets.push(this.field);
-      this.joinBtn = this.btn(this.joining ? 'Joining...' : 'Join', cx + 26, fy, 94, 20, () => this.join(), { enabled: !!this.sel && /^\d{4}$/.test(this.field.value) && !this.joining });
-      this.btn('Back', cx - 100, fy + 52, 200, 20, () => this.back());
+      this.joinBtn = this.btn(this.joining ? 'Joining...' : 'Join', cx + 26, fy, 94, 20, () => this.join(), { enabled: this.canJoin() });
+      this.btn('Back', cx - 100, fy + 56, 200, 20, () => this.back());
       this.codeY = fy;
       if (keepFocus >= 0 && keepFocus < this.widgets.length) this.focus = keepFocus;
       else if (DL.Input.lastDevice === 'gamepad') this.focus = 0;
     }
     activateField(f) { super.activateField(f); try { DL.Input.textInput.inputMode = 'numeric'; } catch (e) { /* ignore */ } }
     deactivateField(f) { super.deactivateField(f); try { DL.Input.textInput.inputMode = 'text'; } catch (e) { /* ignore */ } }
-    textInput(v) { this.field.value = v.replace(/\D/g, '').slice(0, 4); if (this.joinBtn) this.joinBtn.enabled = !!this.sel && /^\d{4}$/.test(this.field.value) && !this.joining; }
+    textInput(v) { this.field.value = v.replace(/\D/g, '').slice(0, 4); if (this.joinBtn) this.joinBtn.enabled = this.canJoin(); }
     async join() {
-      if (this.joining || !this.sel || !/^\d{4}$/.test(this.field.value)) return;
+      if (!this.canJoin()) { if (!this.joining) this.status = 'Type the 4-digit code shown on the host\'s pause menu'; return; }
+      if (!this.L) { this.status = 'Still looking for games, try again in a moment'; return; }
+      const tries = this.picked && this.sel ? [this.sel] : this.games.slice();
+      if (!tries.length) { this.status = this.lobbyStatus(); return; }
       DL.Input.textInput.blur();
       this.joining = true; this.layout();
-      const ok = await N.join(this.game, this.sel, this.field.value, (s) => { this.status = s; });
+      let ok = false;
+      for (const gm of tries) {
+        try { ok = await N.join(this.game, gm, this.field.value, (s) => { this.status = s; }); } catch (e) { console.warn('net: join error', e); this.status = 'Could not connect. Make sure you are both on the same Wi-Fi.'; ok = false; }
+        if (ok || G.screen !== this) break;
+      }
       this.joining = false;
       if (!ok && G.screen === this) this.layout();
     }
     draw(mx, my) {
       const cx = G.W / 2;
       G.textC('Play with friends on the same Wi-Fi', cx, 16, '#FFFFFF');
-      G.textC(this.status, cx, 28, '#A0A0A0');
+      DL.Font.wrap(this.status, Math.min(G.W - 16, 300)).slice(0, 2).forEach((ln, i) => G.textC(ln, cx, 27 + i * 10, '#A0A0A0'));
       G.text('Join code', cx - 120, this.codeY + 6, '#A0A0A0');
       this.drawWidgets(mx, my);
-      G.textC('The host opens their world from the pause menu (Open to Wi-Fi).', cx, this.codeY + 30, '#808080');
+      DL.Font.wrap('The host opens their world from the pause menu (Open to Wi-Fi). Both of you must be on the same Wi-Fi.', Math.min(G.W - 16, 300)).forEach((ln, i) => G.textC(ln, cx, this.codeY + 26 + i * 10, '#808080'));
     }
   }
   N.MultiplayerScreen = MultiplayerScreen;
