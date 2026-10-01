@@ -646,7 +646,7 @@
         }
         this.serveChunks(c);
         this.snapshot(c);
-        if (this.tickN % 20 === 0) c.send({ t: 'time', v: w.time, f: !!w.timeFrozen }, true);
+        if (this.tickN % 20 === 0) c.send({ t: 'time', v: w.time, f: !!w.timeFrozen, wr: w.weather ? [w.weather.target ? 1 : 0, w.weather.thunderT ? 1 : 0] : null }, true);
         if (this.tickN % 5 === 0) for (const [k, o] of c.watch) {
           const json = JSON.stringify(teData(o.te));
           if (json !== o.json) { o.json = json; const p = k.split(',').map(Number); c.send({ t: 'te', p, d: teData(o.te) }); }
@@ -856,7 +856,7 @@
           w.boss = boss;
           return;
         }
-        case 'time': if (isNum(m.v, 0, 1e12)) { w.time = m.v; w.timeFrozen = !!m.f; } return;
+        case 'time': if (isNum(m.v, 0, 1e12)) { w.time = m.v; w.timeFrozen = !!m.f; } if (Array.isArray(m.wr) && DL.Extras) { const wt = DL.Extras.weather(g); if (wt) { wt.target = m.wr[0] ? 1 : 0; wt.thunderT = m.wr[1] ? 1 : 0; } } return;
         case 'fx': {
           if (!Array.isArray(m.l) || !w.fx) return;
           for (const f of m.l.slice(0, 64)) {
@@ -864,6 +864,7 @@
             if (f.k === 's' && typeof f.n === 'string' && /^[a-z_]{1,24}$/.test(f.n)) w.fx.sound(f.n, f.p[0], f.p[1], f.p[2], isNum(f.v, 0, 10) ? f.v : 1, isNum(f.pi, 0.1, 4) ? f.pi : 1);
             else if (f.k === 'x' && isNum(f.w, 0, 10)) w.fx.explosion(f.p[0], f.p[1], f.p[2], f.w);
             else if (f.k === 'b' && isInt(f.id, 1, 255) && S.blocks[f.id]) w.fx.blockBroken(Math.floor(f.p[0]), Math.floor(f.p[1]), Math.floor(f.p[2]), f.id, f.m | 0);
+            else if (f.k === 'l' && DL.Extras) DL.Extras.remoteBolt(Math.floor(f.p[0]), Math.floor(f.p[1]), Math.floor(f.p[2]));
             else if (f.k === 'p' && typeof f.n === 'string' && /^[a-z_]{1,16}$/.test(f.n)) w.fx.particles(f.n, f.p[0], f.p[1], f.p[2], Math.min(30, f.c | 0), isNum(f.sp, 0, 8) ? f.sp : 0.5);
           }
           return;

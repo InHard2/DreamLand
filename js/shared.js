@@ -891,7 +891,7 @@ function DL_SHARED_FACTORY() {
     const self = SELFCULL[id] || (leaf && !this.fancy);
     const meta = this.me[i];
     const above = bl[i + P2];
-    const flags = leaf ? (this.fancy ? 1 : 3) : 0;
+    const flags = leaf ? (this.fancy ? 1 : 5) : 0;
     for (let f = 0; f < 6; f++) {
       const ni = i + DOFF[f];
       const n = bl[ni];
@@ -1007,7 +1007,7 @@ function DL_SHARED_FACTORY() {
     const tile = tileFor(id, 2, this.me[i], 0);
     const a = 0.5 - r, b = 0.5 + r;
     const out = this.solid;
-    const flag = (id === B.sapling || id === B.dandelion || id === B.rose) ? 2 : 0;
+    const flag = (id === B.sapling || id === B.dandelion || id === B.rose || id === B.reeds || id === B.purple_flower || id === B.white_flower) ? 2 : 0;
     this.quad2(out, [[x + a, y, z + a], [x + b, y, z + b], [x + b, y + 1, z + b], [x + a, y + 1, z + a]], tile, lv >> 4, lv & 15, 1, flag);
     this.quad2(out, [[x + a, y, z + b], [x + b, y, z + a], [x + b, y + 1, z + a], [x + a, y + 1, z + b]], tile, lv >> 4, lv & 15, 1, flag);
   };
@@ -1018,8 +1018,8 @@ function DL_SHARED_FACTORY() {
     const out = this.solid;
     const y0 = y - 1 / 16, y1 = y + 15 / 16;
     for (const o of [4 / 16, 12 / 16]) {
-      this.quad2(out, [[x + o, y0, z], [x + o, y0, z + 1], [x + o, y1, z + 1], [x + o, y1, z]], tile, lv >> 4, lv & 15, 1, 0);
-      this.quad2(out, [[x, y0, z + o], [x + 1, y0, z + o], [x + 1, y1, z + o], [x, y1, z + o]], tile, lv >> 4, lv & 15, 1, 0);
+      this.quad2(out, [[x + o, y0, z], [x + o, y0, z + 1], [x + o, y1, z + 1], [x + o, y1, z]], tile, lv >> 4, lv & 15, 1, 2);
+      this.quad2(out, [[x, y0, z + o], [x + 1, y0, z + o], [x + 1, y1, z + o], [x, y1, z + o]], tile, lv >> 4, lv & 15, 1, 2);
     }
   };
 

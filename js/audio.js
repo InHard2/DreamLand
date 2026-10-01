@@ -140,6 +140,13 @@
     pgopen: () => { const lp = new Biquad('lp', 1200); return gen(0.7, t => (lp.run(noise()) * 0.6 + Math.sin(2 * Math.PI * (220 + t * 260) * t) * 0.5) * Math.min(1, t * 20) * Math.exp(-t * 5)); },
     pgenter: () => { const bp = new Biquad('bp', 900, 1.2); return gen(0.5, t => (bp.run(noise()) * 0.7 + Math.sin(2 * Math.PI * (600 - t * 700) * t) * 0.4) * Math.min(1, t * 30) * Math.exp(-t * 7)); },
     pgfizzle: () => { const hp = new Biquad('hp', 2500); return gen(0.4, t => hp.run(noise()) * (0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 40)) * env(t, 0.003, 0.1)); },
+    rain: () => { const lp = new Biquad('lp', 2600), hp = new Biquad('hp', 400); return gen(2.2, t => hp.run(lp.run(noise())) * 0.55 * Math.min(1, t * 4) * Math.min(1, (2.2 - t) * 4) + (Math.random() < 0.0009 ? 0.6 : 0) * Math.exp(-((t * 1000) % 7))); },
+    thunder: () => { const lp = new Biquad('lp', 260), lp2 = new Biquad('lp', 900); return gen(3.5, t => (lp.run(noise()) * 1.4 + lp2.run(noise()) * 0.5 * Math.exp(-t * 6)) * Math.min(1, t * 12) * Math.exp(-t * 0.9) * (0.7 + 0.3 * Math.sin(t * 9))); },
+    fwlaunch: () => { const bp = new Biquad('bp', 1200, 0.8); return gen(1.0, t => bp.run(noise()) * Math.min(1, t * 10) * Math.exp(-t * 2.2) * (0.6 + 0.4 * Math.sin(t * 60 + t * t * 80))); },
+    fwblast: () => { const lp = new Biquad('lp', 700); return gen(1.6, t => (lp.run(noise()) * 1.3 + Math.sin(2 * Math.PI * 60 * t) * 0.6) * env(t, 0.002, 0.35)); },
+    fwtwinkle: () => { const hp = new Biquad('hp', 3000); return gen(1.4, t => hp.run(noise()) * (Math.random() < 0.06 ? 1 : 0.05) * Math.exp(-t * 1.5)); },
+    ach: () => gen(0.9, t => (Math.sin(2 * Math.PI * (t < 0.15 ? 784 : 1047) * t) * 0.5 + Math.sin(2 * Math.PI * (t < 0.15 ? 1568 : 2093) * t) * 0.15) * env(t, 0.005, t < 0.15 ? 0.2 : 0.35)),
+    grapple: () => { const bp = new Biquad('bp', 2800, 4); return gen(0.35, t => (bp.run(noise()) * 0.6 + Math.sin(2 * Math.PI * 1900 * t) * 0.3) * env(t, 0.001, 0.05)); },
     fuse: () => { const hp = new Biquad('hp', 2500), lp = new Biquad('lp', 9000); return gen(1.6, t => lp.run(hp.run(noise())) * Math.min(1, t / 0.4) * (t > 1.5 ? (1.6 - t) / 0.1 : 1) * (0.8 + 0.2 * Math.sin(t * 90))); },
     explode: () => {
       const lp = new Biquad('lp', 900), lp2 = new Biquad('lp', 160);

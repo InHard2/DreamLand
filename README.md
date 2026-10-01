@@ -36,5 +36,14 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - Portals go on solid blocks: 1x2 on walls, 1x1 on floors and ceilings. Walk, fall or throw things in: players, mobs, items and arrows come out of the other portal with their speed rotated to match.
 - Wall portals show a live view of the other side.
 
+## Weather, fireworks & more
+- **Weather**: rain, snow (tundra / high peaks) and thunderstorms. Lightning sets fires, turns pigs into zombie pigmen, villagers into witches and charges creepers (bigger boom!). `/weather <clear|rain|thunder>`.
+- **Fireworks**: craft paper + gunpowder -> 3 rockets. Nine burst shapes (star, heart, creeper face, smiley, ring, willow...), twinkles, and rockets boost you while gliding with an elytra. `/fireworks` starts a show.
+- **Grappling hook**: stick, string and an iron ingot. Use it to zip to blocks or yank mobs towards you; use again to let go.
+- **Dynamic lights**: holding a torch, glowstone, lava bucket etc. lights up the world around you.
+- **Living world**: leaves, grass, flowers and crops sway in the wind; water ripples and shimmers.
+- **Night sky**: shooting stars (make a wish!) and auroras over snowy biomes.
+- **Achievements**: 25 of them, with toasts. Browse them from the pause menu.
+
 ## Controls
 WASD move · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Touch and controller layouts are listed in *Help & Controls* in-game.

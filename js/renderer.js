@@ -7,10 +7,26 @@
 
   const TERRAIN_VS = `
 attribute vec3 aPos; attribute vec2 aUV; attribute vec4 aLight;
-uniform mat4 uProj, uView, uModel;
-varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag;
+uniform mat4 uProj, uView, uModel; uniform highp float uTime; uniform vec3 uCamPos;
+varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos;
 void main(){
-  vec4 wp = uModel * vec4(aPos * (1.0/256.0), 1.0);
+  vec3 lp = aPos * (1.0/256.0);
+  vec4 wp = uModel * vec4(lp, 1.0);
+  float fl = floor(aLight.w * 255.0 + 0.5);
+  if (uTime >= 0.0) {
+    vec3 W = wp.xyz + uCamPos;
+    if (fl == 1.0 || fl == 5.0) {
+      float ph = W.x * 0.7 + W.z * 0.5 + W.y * 0.3;
+      wp.x += sin(uTime * 1.7 + ph) * 0.03; wp.z += cos(uTime * 1.3 + ph * 1.3) * 0.03; wp.y += sin(uTime * 2.1 + ph) * 0.01;
+    } else if (fl == 2.0) {
+      float top = 1.0 - fract(aUV.y * 16.0 + 0.0001);
+      float ph = W.x * 0.9 + W.z * 0.6;
+      wp.x += sin(uTime * 2.0 + ph) * 0.07 * top; wp.z += cos(uTime * 1.6 + ph) * 0.05 * top;
+    } else if (fl == 3.0 && fract(lp.y) > 0.02) {
+      wp.y += (sin(uTime * 1.8 + W.x * 0.9 + W.z * 0.6) + sin(uTime * 1.3 - W.z * 0.8 + W.x * 0.3)) * 0.022 - 0.045;
+    }
+  }
+  vPos = wp.xyz;
   vec4 vp = uView * wp;
   gl_Position = uProj * vp;
   vDist = length(vp.xyz);
@@ -20,18 +36,21 @@ void main(){
 precision mediump float;
 uniform sampler2D uTex;
 uniform float uSkySub, uAlphaTest, uGamma, uFogDensity, uFogMode, uAmb;
-uniform vec3 uFogColor; uniform vec2 uFog; uniform vec3 uLightOv; uniform vec4 uTint;
-varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag;
+uniform vec3 uFogColor; uniform vec2 uFog; uniform vec3 uLightOv; uniform vec4 uTint; uniform vec4 uDyn, uDyn2; uniform highp float uTime;
+varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos;
 float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*(0.95-uAmb)+0.05+uAmb; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
 void main(){
   vec4 t = texture2D(uTex, vUV);
-  bool solidLeaf = vFlag > 2.5 / 255.0 && vFlag < 3.5 / 255.0;
+  bool solidLeaf = vFlag > 4.5 / 255.0 && vFlag < 5.5 / 255.0;
   if (solidLeaf) { if (t.a < 0.5) t = vec4(0.09, 0.16, 0.05, 1.0); t.a = 1.0; }
   if (t.a < uAlphaTest) discard;
   float sky = uLightOv.x > 0.5 ? uLightOv.y : vSky * 15.0;
   float blk = uLightOv.x > 0.5 ? uLightOv.z : vBlk * 15.0;
+  if (uDyn.w > 0.0) blk = max(blk, uDyn.w - length(vPos - uDyn.xyz));
+  if (uDyn2.w > 0.0) blk = max(blk, uDyn2.w - length(vPos - uDyn2.xyz) * 0.8);
   float L = max(sky - uSkySub, blk);
   vec3 c = t.rgb * vShade * bright(max(L, 0.0));
+  if (floor(vFlag * 255.0 + 0.5) == 3.0) c *= 1.0 + 0.07 * sin(uTime * 2.2 + vPos.x * 2.1 + vPos.z * 1.7);
   c = mix(c, uTint.rgb, uTint.a);
   float fog = uFogMode > 0.5 ? clamp(exp(-uFogDensity * vDist), 0.0, 1.0) : clamp((uFog.y - vDist)/(uFog.y - uFog.x), 0.0, 1.0);
   gl_FragColor = vec4(mix(uFogColor, c, fog), t.a);
@@ -388,6 +407,11 @@ void main(){
     gl.uniform1f(sh.u.uFogMode, this.fogMode);
     gl.uniform1f(sh.u.uFogDensity, this.fogDensity);
     gl.uniform1f(sh.u.uAmb, this.ambient || 0);
+    const cam = this.cam, dw = this.dynWorld, dw2 = this.dynWorld2;
+    gl.uniform1f(sh.u.uTime, this.waving === false ? -1 : (performance.now() / 1000) % 3600);
+    gl.uniform3f(sh.u.uCamPos, cam.x, cam.y, cam.z);
+    if (dw && dw[3] > 0) gl.uniform4f(sh.u.uDyn, dw[0] - cam.x, dw[1] - cam.y, dw[2] - cam.z, dw[3]); else gl.uniform4f(sh.u.uDyn, 0, 0, 0, 0);
+    if (dw2 && dw2[3] > 0) gl.uniform4f(sh.u.uDyn2, dw2[0] - cam.x, dw2[1] - cam.y, dw2[2] - cam.z, dw2[3]); else gl.uniform4f(sh.u.uDyn2, 0, 0, 0, 0);
     gl.uniform3f(sh.u.uLightOv, 0, 0, 0);
     gl.uniform4f(sh.u.uTint, 0, 0, 0, 0);
     gl.activeTexture(gl.TEXTURE0);
@@ -530,7 +554,7 @@ void main(){
     gl.blendFunc(gl.ONE, gl.ONE);
     M4.copy(rot, this.mvp);
     M4.rotateZ(rot, rot, a * Math.PI * 2);
-    const rain = 1;
+    const rain = 1 - (this.rainLevel || 0) * 0.95;
     this.begin();
     const s1 = 30;
     this.quadV([[-s1, 100, -s1], [s1, 100, -s1], [s1, 100, s1], [-s1, 100, s1]], [[0, 0], [1, 0], [1, 1], [0, 1]], [rain, rain, rain, 1]);
@@ -560,7 +584,7 @@ void main(){
     const drift = (world.totalTicks + pt) * 0.03;
     const cell = 12;
     const cl = this.clouds;
-    const bright = Math.max(0.1, Math.min(1, Math.cos(world.celestialAngle(pt) * Math.PI * 2) * 2 + 0.5));
+    const bright = Math.max(0.1, Math.min(1, Math.cos(world.celestialAngle(pt) * Math.PI * 2) * 2 + 0.5)) * (1 - (this.rainLevel || 0) * 0.45);
     const col = [0.9 * bright + 0.1 * this.fogColor[0], 0.9 * bright + 0.1 * this.fogColor[1], 0.9 * bright + 0.1 * this.fogColor[2]];
     M4.multiply(this.mvp, this.proj, this.view);
     gl.enable(gl.BLEND);
