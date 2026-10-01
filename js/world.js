@@ -811,7 +811,7 @@
       if (y <= 0 || y >= CH - 1) continue;
       const b = this.getBlock(x, y, z);
       if (b === B.water && this.getMeta(x, y, z) === 0) this.popSet(x, y, z, B.ice, 0);
-      else if (SOLID[b] && OPAQUE[b] && b !== B.ice && this.getBlock(x, y + 1, z) === 0) this.popSet(x, y + 1, z, B.snow_layer, 0);
+      else if (SOLID[b] && (OPAQUE[b] || S.LEAVES[b]) && b !== B.ice && this.getBlock(x, y + 1, z) === 0) this.popSet(x, y + 1, z, B.snow_layer, 0);
     }
     // animals
     const cx8 = bx + 8, cz8 = bz + 8;
@@ -905,7 +905,7 @@
         const ax = Math.abs(xx - x), az = Math.abs(zz - z);
         if (ax === rad && az === rad && (r.nextInt(2) === 0 || dy === 0)) continue;
         const b = this.getBlock(xx, yy, zz);
-        if (!OPAQUE[b] || b === B.leaves) this.popSet(xx, yy, zz, B.leaves, 0);
+        if (b === 0 || b === B.leaves || S.REPLACE[b] || S.RENDER[b] === S.R.CROSS) this.popSet(xx, yy, zz, B.leaves, 0);
       }
     }
     for (let yy = 0; yy < h; yy++) {

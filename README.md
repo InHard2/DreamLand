@@ -29,5 +29,12 @@ A browser voxel sandbox tribute to the classic Alpha era — pure HTML5/WebGL, n
 - Games are discovered through the artifact page's live room, so friends need access to the same DreamLand artifact.
 - The host's world is the authority: every guest action is validated, range-checked and rate-limited; only the host can run commands and take everyone through portals.
 
+## Portal Gun
+
+- Craft it (glowstone dust on top, iron ingots around an ender pearl, obsidian at the bottom) or grab it from the Creative inventory.
+- **Use** (right click / tap / LT) fires a **blue** portal, **attack** (left click / hold / RT) fires an **orange** one, **sneak + use** closes both.
+- Portals go on solid blocks: 1x2 on walls, 1x1 on floors and ceilings. Walk, fall or throw things in: players, mobs, items and arrows come out of the other portal with their speed rotated to match.
+- Wall portals show a live view of the other side.
+
 ## Controls
 WASD move · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Touch and controller layouts are listed in *Help & Controls* in-game.

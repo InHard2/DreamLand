@@ -243,6 +243,14 @@ function DL_SHARED_FACTORY() {
   def(240, 'zanite_block', PK({ tex: 'zanite_block', hardness: 3, sound: 'metal' }));
   // non-cube "opaque" flags for clouds (def() forces opaque for cubes)
   OPAQUE[235] = OPAQUE[236] = 0; blocks[235].opaque = blocks[236].opaque = false;
+  // Cubes you can see through must not hide their neighbours' faces (no X-ray).
+  for (let id = 1; id < 256; id++) {
+    const d = blocks[id];
+    if (d && d.render === R.CUBE && (d.cutout || d.layer === 1)) { d.opaque = false; OPAQUE[id] = 0; }
+  }
+  const LEAVES = new Uint8Array(256);
+  LEAVES[B.leaves] = LEAVES[B.skyroot_leaves] = LEAVES[B.golden_oak_leaves] = 1;
+  S.LEAVES = LEAVES;
 
   /** Box lists (1/16 units) for SHAPE blocks. */
   function shapeBoxes(id, meta) {
@@ -842,7 +850,8 @@ function DL_SHARED_FACTORY() {
     const fancy = !!job.fancy, smooth = !!job.smooth;
     const opq = this.opq;
     opq.set(OPAQUE);
-    if (!fancy) opq[B.leaves] = 1;
+    // fast graphics: leaves are drawn solid, so they may hide what is behind them
+    if (!fancy) for (let id = 0; id < 256; id++) if (LEAVES[id]) opq[id] = 1;
     this.solid.n = 0; this.trans.n = 0;
     this.bl = bl; this.me = me; this.li = li; this.fancy = fancy; this.smooth = smooth;
     for (let y = 0; y < 16; y++) {
@@ -878,10 +887,11 @@ function DL_SHARED_FACTORY() {
   Mesher.prototype.cube = function (i, id, x, y, z) {
     const bl = this.bl, li = this.li, opq = this.opq;
     const out = LAYER[id] === 1 ? this.trans : this.solid;
-    const self = SELFCULL[id] || (id === B.leaves && !this.fancy);
+    const leaf = LEAVES[id] === 1;
+    const self = SELFCULL[id] || (leaf && !this.fancy);
     const meta = this.me[i];
     const above = bl[i + P2];
-    const flags = id === B.leaves ? 1 : 0;
+    const flags = leaf ? (this.fancy ? 1 : 3) : 0;
     for (let f = 0; f < 6; f++) {
       const ni = i + DOFF[f];
       const n = bl[ni];
@@ -942,7 +952,7 @@ function DL_SHARED_FACTORY() {
       const ni = i + DOFF[f];
       if (onEdge && !noCull && opq[bl[ni]]) continue;
       if (onEdge && !noCull && bl[ni] === id && (RENDER[id] === R.SNOW || RENDER[id] === R.PORTAL || RENDER[id] === R.SHAPE)) continue;
-      const lv = onEdge ? li[ni] : li[i];
+      const lv = (onEdge || LOPAC[id] >= 15) ? li[ni] : li[i];
       const tile = texOverride !== undefined ? (typeof texOverride === 'number' ? texOverride : texOverride[f]) : tileFor(id, f, meta, above);
       this.quadBox(out, f, x, y, z, mn, mx, tile, lv >> 4, lv & 15, FACE_SHADE[f], 0);
     }
@@ -985,7 +995,7 @@ function DL_SHARED_FACTORY() {
       out.v(p[0], p[1], p[2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / 16, S_, K_, H_, flags);
     }
     if (oneSided) return;
-    for (let v = 3; v >= 0; v--) {
+    for (let v = 0; v < 4; v++) {
       const vv = [1, 0, 3, 2][v];
       const p = pts[vv];
       out.v(p[0], p[1], p[2], (tx + uvs[vv][0]) / 16, (ty + uvs[vv][1]) / 16, S_, K_, H_, flags);

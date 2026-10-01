@@ -136,6 +136,10 @@
     slime: () => { const lp = new Biquad('lp', 500); return gen(0.25, t => lp.run(noise()) * env(t, 0.005, 0.06) + Math.sin(2 * Math.PI * (140 - t * 200) * t) * env(t, 0.003, 0.08)); },
     wolf: () => voice({ f0: 520, f1: 380, dur: 0.18, formants: [[900, 4], [1900, 5]], rough: 0.6, reps: 2, gap: 0.12 }),
     bat: () => gen(0.1, t => Math.sin(2 * Math.PI * (4200 - t * 9000) * t) * env(t, 0.002, 0.02)),
+    pgfire: () => { const bp = new Biquad('bp', 1800, 1.5); return gen(0.35, t => (Math.sin(2 * Math.PI * (1400 - t * 3200) * t) * 0.6 + bp.run(noise()) * 0.5) * env(t, 0.002, 0.08)); },
+    pgopen: () => { const lp = new Biquad('lp', 1200); return gen(0.7, t => (lp.run(noise()) * 0.6 + Math.sin(2 * Math.PI * (220 + t * 260) * t) * 0.5) * Math.min(1, t * 20) * Math.exp(-t * 5)); },
+    pgenter: () => { const bp = new Biquad('bp', 900, 1.2); return gen(0.5, t => (bp.run(noise()) * 0.7 + Math.sin(2 * Math.PI * (600 - t * 700) * t) * 0.4) * Math.min(1, t * 30) * Math.exp(-t * 7)); },
+    pgfizzle: () => { const hp = new Biquad('hp', 2500); return gen(0.4, t => hp.run(noise()) * (0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 40)) * env(t, 0.003, 0.1)); },
     fuse: () => { const hp = new Biquad('hp', 2500), lp = new Biquad('lp', 9000); return gen(1.6, t => lp.run(hp.run(noise())) * Math.min(1, t / 0.4) * (t > 1.5 ? (1.6 - t) / 0.1 : 1) * (0.8 + 0.2 * Math.sin(t * 90))); },
     explode: () => {
       const lp = new Biquad('lp', 900), lp2 = new Biquad('lp', 160);

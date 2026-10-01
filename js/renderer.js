@@ -25,6 +25,8 @@ varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag;
 float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*(0.95-uAmb)+0.05+uAmb; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
 void main(){
   vec4 t = texture2D(uTex, vUV);
+  bool solidLeaf = vFlag > 2.5 / 255.0 && vFlag < 3.5 / 255.0;
+  if (solidLeaf) { if (t.a < 0.5) t = vec4(0.09, 0.16, 0.05, 1.0); t.a = 1.0; }
   if (t.a < uAlphaTest) discard;
   float sky = uLightOv.x > 0.5 ? uLightOv.y : vSky * 15.0;
   float blk = uLightOv.x > 0.5 ? uLightOv.z : vBlk * 15.0;
