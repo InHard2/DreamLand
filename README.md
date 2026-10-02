@@ -64,5 +64,13 @@ Tabs like modern Minecraft: Building, Colored, Natural, Functional and Redstone 
 - **Minimap** with coordinates and the biome name (M to toggle, or Options), **death coordinates** in chat, and a **Sort** button in your inventory and chests.
 - The creative inventory's Survival Inventory tab now shows your 3D character, and there are spawn eggs for all the new creatures.
 
+## Playing on several computers (LAN server)
+Downloaded copies have no Claude lobby, so DreamLand ships a tiny server that runs the lobby and carries the game traffic. It needs **Node.js** or **Python 3** (no packages).
+1. On one PC, extract the zip and double-click **Start DreamLand Server.bat** (Windows), or run `./start-server.sh` (Mac/Linux), `node server.js` or `python server.py`. When Windows asks, click **Allow access**.
+2. The window shows addresses such as `http://192.168.1.23:8080`. The game opens on that PC; everyone else on the same Wi-Fi opens that address in their browser.
+3. The host picks **Pause > Open to Wi-Fi**. Friends pick **Multiplayer**, see the world in the list, type the 4-digit code and join.
+
+The server only passes messages along; the host still checks the code and every action. Without the server you can still try **invite codes** (Multiplayer > Join with an invite code / Pause > Invite by code); send the reply code back within about a minute.
+
 ## Controls
 WASD move · double-tap W or R sprint · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · M minimap · F5 camera · F3 debug · F2 screenshot. Sprint on touch by pushing the stick past its ring, on a controller by clicking the left stick. Touch and controller layouts are listed in *Help & Controls* in-game.

@@ -250,7 +250,13 @@
     buildSlots() {
       const p = this.player;
       if (this.tab === 'inventory') {
-        for (let i = 0; i < 4; i++) this.slots.push({ x: 9 + (i >> 1) * 18, y: 8 + (i & 1) * 22, get: () => p.armor[i], set: (s) => { p.armor[i] = s; }, armor: i, ghost: null });
+        // like Minecraft: helmet and chestplate left of you, leggings and boots on the right
+        const GHOST = ['leather_helmet', 'leather_chestplate', 'leather_leggings', 'leather_boots'];
+        for (let i = 0; i < 4; i++) this.slots.push({
+          x: i < 2 ? 54 : 108, y: 7 + (i & 1) * 27, get: () => p.armor[i], set: (s) => { p.armor[i] = s; }, armor: i, armorSlot: true, max: 1,
+          accept: (s) => { const d = I.get(s.id); return !!(d && d.armor && d.armor.slot === i); },
+          ghost: (x, y) => { const t = DL.Tex.itemTile(GHOST[i]); G.ctx.globalAlpha = 0.25; G.ctx.filter = 'grayscale(1) brightness(0.4)'; G.ctx.drawImage(DL.Tex.items, (t & 15) * 16, (t >> 4) * 16, 16, 16, x, y, 16, 16); G.ctx.filter = 'none'; G.ctx.globalAlpha = 1; }
+        });
         this.slots.push({ x: 173, y: 112, trash: true, get: () => null, set: () => { } });
         for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) {
           const i = 9 + r * 9 + c;
@@ -392,13 +398,11 @@
       this.preview = null;
       if (this.tab === 'inventory') {
         // a window the renderer draws your 3D model through (like the survival inventory)
-        const bx = this.px + 52, by = this.py + 4;
-        G.rect(bx, by, 36, 48, '#000');
-        G.ctx.clearRect(bx + 1, by + 1, 34, 46);
-        this.preview = [bx + 1, by + 1, 34, 46];
-        this.previewLook = [(mx - bx - 18) / 30, (my - by - 14) / 30];
-        this.drawLabel('Armor', 94, 8);
-        this.drawLabel('Inventory', 94, 42);
+        const bx = this.px + 73, by = this.py + 4;
+        G.rect(bx, by, 32, 47, '#000');
+        G.ctx.clearRect(bx + 1, by + 1, 30, 45);
+        this.preview = [bx + 1, by + 1, 30, 45];
+        this.previewLook = [(mx - bx - 16) / 30, (my - by - 14) / 30];
       } else this.drawLabel(cur ? cur.name : '', 8, 6);
       if (this.hasGrid()) {
         const tx = this.px + 175, ty = this.py + 18, th = 90;

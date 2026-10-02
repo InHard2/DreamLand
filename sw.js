@@ -1,5 +1,5 @@
 /* DreamLand service worker: offline cache for the app shell. */
-const CACHE = 'dreamland-v10';
+const CACHE = 'dreamland-v11';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './js/shared.js', './js/math.js', './js/textures.js', './js/font.js', './js/items.js', './js/storage.js',

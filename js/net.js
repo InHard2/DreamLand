@@ -126,6 +126,88 @@
       connected: () => true
     };
   }
+  /* ------------------------------------------------------------ */
+  /* Lobby and relay through the bundled LAN server (server.js /  */
+  /* server.py): works across PCs whatever the firewall does.     */
+  /* ------------------------------------------------------------ */
+  function serverRoom() {
+    return new Promise((resolve) => {
+      if (!/^https?:$/.test(location.protocol) || typeof WebSocket !== 'function') { resolve(null); return; }
+      let settled = false, ws = null;
+      const done = (v) => { if (settled) return; settled = true; clearTimeout(to); if (!v && ws) { try { ws.close(); } catch (e) { /* ignore */ } } resolve(v); };
+      let to = setTimeout(() => done(null), 4000);
+      fetch('/dl-lan.json', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(info => {
+        if (!info || info.dreamland !== true) { done(null); return; }
+        // there is a DreamLand server: give the lobby time to connect, even on a busy computer
+        clearTimeout(to); to = setTimeout(() => done(null), 15000);
+        try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/dl-ws'); } catch (e) { done(null); return; }
+        ws.binaryType = 'arraybuffer';
+        let me = null, snap = Object.freeze([]);
+        const mine = {}, subs = new Set(), links = new Map(), ctl = new Set();
+        const rebuild = (list) => {
+          snap = Object.freeze(list.filter(e => e && typeof e.peer === 'string').map(e => Object.freeze({ peer: e.peer, by: null, isMe: e.peer === me, sameTab: e.peer === me, kind: 'viewer', guest: false, presence: Object.freeze(e.presence && typeof e.presence === 'object' ? e.presence : {}), updatedAt: Date.now() })));
+          for (const f of subs) { try { f({ peers: snap, joined: [], left: [], updated: snap }); } catch (e) { /* ignore */ } }
+        };
+        const room = {
+          info,
+          presence(patch) { for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'presence', p: mine })); return Promise.resolve(); },
+          peers: () => snap,
+          onPeers(fn) { subs.add(fn); setTimeout(() => fn({ peers: snap, joined: snap, left: [], updated: [] }), 0); return () => subs.delete(fn); },
+          connected: () => ws.readyState === 1,
+          sendCtl(peer, d) { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'to', to: peer, d })); },
+          onCtl(fn) { ctl.add(fn); return () => ctl.delete(fn); },
+          /** A pretend peer connection whose two data channels ride the relay. */
+          relayPc(peer, lid) {
+            const chan = (label) => {
+              const lab = label === 'u' ? 1 : 0, key = peer + ':' + lid + ':' + lab, to = parseInt(peer.slice(1), 10) >>> 0;
+              const ch = {
+                label, readyState: 'connecting', binaryType: 'arraybuffer', onmessage: null, onclose: null, onopen: null,
+                get bufferedAmount() { return ws.bufferedAmount; },
+                send(data) {
+                  if (ch.readyState !== 'open' || ws.readyState !== 1) throw new Error('closed');
+                  if (typeof data === 'string') { ws.send(JSON.stringify({ t: 'to', to: peer, d: { l: lid, c: label, s: data } })); return; }
+                  const src = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+                  const out = new Uint8Array(10 + src.length), dv = new DataView(out.buffer);
+                  out[0] = 1; dv.setUint32(1, to); dv.setUint32(5, lid); out[9] = lab;
+                  out.set(src, 10);
+                  ws.send(out.buffer);
+                },
+                close() { if (ch.readyState === 'closed') return; const was = ch.readyState; ch.readyState = 'closed'; links.delete(key); if (was === 'open' && ws.readyState === 1) ws.send(JSON.stringify({ t: 'to', to: peer, d: { l: lid, x: 1 } })); if (ch.onclose) ch.onclose(); },
+                gone() { if (ch.readyState === 'closed') return; ch.readyState = 'closed'; links.delete(key); if (ch.onclose) ch.onclose(); },
+                markOpen() { if (ch.readyState !== 'connecting') return; ch.readyState = 'open'; if (ch.onopen) ch.onopen(); }
+              };
+              links.set(key, ch);
+              return ch;
+            };
+            const r = chan('r'), u = chan('u');
+            const pc = { connectionState: 'connected', onconnectionstatechange: null, close() { r.close(); u.close(); } };
+            return { pc, r, u };
+          }
+        };
+        ws.onmessage = (ev) => {
+          if (typeof ev.data !== 'string') {
+            const u8 = new Uint8Array(ev.data);
+            if (u8.length < 10 || u8[0] !== 1) return;
+            const dv = new DataView(ev.data), ch = links.get('p' + dv.getUint32(1) + ':' + dv.getUint32(5) + ':' + u8[9]);
+            if (ch && ch.readyState === 'open' && ch.onmessage) ch.onmessage({ data: ev.data.slice(10) });
+            return;
+          }
+          let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+          if (!m || typeof m !== 'object') return;
+          if (m.t === 'hello' && typeof m.you === 'string') { me = m.you; room.presence({}); done(room); }
+          else if (m.t === 'peers' && Array.isArray(m.list)) { if (typeof m.you === 'string') me = m.you; rebuild(m.list.slice(0, 64)); }
+          else if (m.t === 'gone' && typeof m.peer === 'string') { for (const [k, ch] of Array.from(links)) if (k.startsWith(m.peer + ':')) ch.gone(); }
+          else if (m.t === 'from' && typeof m.from === 'string' && m.d && typeof m.d === 'object') {
+            const d = m.d;
+            if (Number.isInteger(d.l) && typeof d.s === 'string') { const ch = links.get(m.from + ':' + d.l + ':' + (d.c === 'u' ? 1 : 0)); if (ch && ch.readyState === 'open' && ch.onmessage) ch.onmessage({ data: d.s }); return; }
+            if (Number.isInteger(d.l) && d.x) { for (const lab of [0, 1]) { const ch = links.get(m.from + ':' + d.l + ':' + lab); if (ch) ch.gone(); } return; }
+            for (const f of ctl) { try { f(m.from, d); } catch (e) { /* ignore */ } }
+          }
+        };
+        ws.onclose = ws.onerror = () => { for (const ch of Array.from(links.values())) ch.gone(); snap = Object.freeze([]); done(null); };
+      }).catch(() => done(null));
+    });
+  }
   let lobbyP = null;
   N.lobby = function () {
     if (lobbyP) return lobbyP;
@@ -137,11 +219,15 @@
         }
       } catch (e) { room = null; }
       if (room) return { room, user, kind: 'artifact' };
+      const srv = await serverRoom();
+      if (srv) return { room: srv, user: null, kind: 'server', info: srv.info };
       return { room: localRoom(), user: null, kind: 'local' };
     })();
     return lobbyP;
   };
   N.myPeer = (room) => { const me = room.peers().find(p => p.sameTab); return me ? me.peer : null; };
+  // find the lobby right away, before a world starts loading and keeps the page busy
+  setTimeout(() => { if (/^https?:$/.test(location.protocol)) N.lobby(); }, 300);
 
   /* Names come from the platform (user capability), never from other players. */
   const names = new Map();
@@ -510,6 +596,7 @@
       const room = this.L.room;
       this.myId = await N.myId();
       this.unsub = room.onPeers(() => this.scan());
+      if (this.L.kind === 'server') this.unsubCtl = room.onCtl((from, d) => this.relayOpen(from, d));
       this.advertise();
       this.attachWorld(this.game.world);
       this.scanT = setInterval(() => this.scan(), 1000);
@@ -693,16 +780,29 @@
       for (let i = 0; i < list.length && i < 120; i++) { const v = encodeEnt(list[i][1], this); if (v) out.push(v); }
       c.send({ t: 'es', s: ++c.seq, e: out }, true);
     }
+    /** A guest on the LAN server asks to connect through the relay. */
+    relayOpen(from, d) {
+      if (this.stopped || !d || !Number.isInteger(d.open) || d.open <= 0) return;
+      const room = this.L.room;
+      if ((this.fails.get(from) || 0) >= 5 || this.conns.size > MAX_GUESTS) { room.sendCtl(from, { refused: d.open }); return; }
+      const rel = room.relayPc(from, d.open);
+      const conn = new Conn(this, rel.pc, from, null);
+      conn.link.onopen = () => { if (this.stopped) { conn.link.close(); return; } this.conns.add(conn); setTimeout(() => { if (!conn.authed) conn.link.close(); }, 10000); };
+      conn.link.attach(rel.r); conn.link.attach(rel.u);
+      rel.r.markOpen(); rel.u.markOpen();
+      room.sendCtl(from, { opened: d.open });
+    }
     stop() {
       this.stopped = true;
       clearInterval(this.scanT);
       if (this.unsub) this.unsub();
+      if (this.unsubCtl) this.unsubCtl();
       for (const c of Array.from(this.conns)) { c.send({ t: 'kick', r: 'The host closed the game' }); setTimeout(() => c.link.close(), 100); }
       this.L.room.presence({ dl: null }).catch(() => {});
       if (this.game.world) { this.game.world.netHost = null; this.game.world.extraCenters = null; }
     }
   }
-  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer', 'grumpy', 'sliding'];
+  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer', 'grumpy', 'sliding', 'grazing'];
   function encodeEnt(e, host) {
     const t = e.type;
     if (!t) return null;
@@ -1054,7 +1154,10 @@
     N.host = h;
     await h.start();
     game.chatMessage('§aLocal game opened! §fFriends on the same Wi-Fi can join from Multiplayer with code §e' + h.code);
-    if (L.kind === 'local') game.chatMessage('§7(No Claude lobby in this copy: friends join with Pause > Invite by code.)');
+    if (L.kind === 'server') {
+      const ips = (L.info && L.info.ips) || [], port = location.port ? ':' + location.port : '';
+      game.chatMessage('§7Friends open §fhttp://' + (ips[0] || location.hostname) + port + '§7 in their browser, then Multiplayer.');
+    } else if (L.kind === 'local') game.chatMessage('§7(No lobby in this copy: run the DreamLand server from the download, or use Pause > Invite by code.)');
     else game.chatMessage('§7Friend on a downloaded copy? Use Pause > Invite by code.');
     return h;
   };
@@ -1062,6 +1165,7 @@
     if (N.host || N.client) return false;
     if (!N.supported()) { onStatus('This browser cannot do local multiplayer'); return false; }
     const L = await N.lobby();
+    if (L.kind === 'server') return joinViaServer(game, L, gameEntry, code, onStatus);
     const room = L.room;
     const hostPeer = gameEntry.peer;
     const pc = newPC();
@@ -1101,6 +1205,27 @@
     if (!ok || !link.open) { link.close(); onStatus('Could not connect. Make sure you are both on the same Wi-Fi.'); return false; }
     return enterGame(game, L, link, gameEntry, code, k, onStatus);
   };
+  async function joinViaServer(game, L, gameEntry, code, onStatus) {
+    const room = L.room, host = gameEntry.peer;
+    const lid = (crypto.getRandomValues(new Uint32Array(1))[0] >>> 1) || 1;
+    const rel = room.relayPc(host, lid);
+    const link = new Link(rel.pc);
+    link.attach(rel.r); link.attach(rel.u);
+    onStatus('Asking the host to let you in...');
+    const ok = await new Promise((res) => {
+      let off = null;
+      const t = setTimeout(() => { if (off) off(); res(false); }, 8000);
+      off = room.onCtl((from, d) => {
+        if (from !== host || !d) return;
+        if (d.opened === lid) { clearTimeout(t); off(); rel.r.markOpen(); rel.u.markOpen(); res(true); }
+        else if (d.refused === lid) { clearTimeout(t); off(); res(false); }
+      });
+      room.sendCtl(host, { open: lid, v: PROTO });
+    });
+    if (!ok || !link.open) { link.close(); onStatus('The host did not answer. Is their game open to Wi-Fi?'); return false; }
+    const k = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('');
+    return enterGame(game, L, link, gameEntry, code, k, onStatus);
+  }
   async function enterGame(game, L, link, gameEntry, code, k, onStatus) {
     let key = null;
     try { key = localStorage.getItem('dreamland.lankey'); if (!key) { key = k + k.slice(0, 4); localStorage.setItem('dreamland.lankey', key); } } catch (e) { key = k; }
@@ -1160,7 +1285,7 @@
       if (!cands.some(c => c.a === a && c.p === port)) cands.push({ a, p: port });
     }
     cands.sort((x, y) => (x.a.includes(':') ? 1 : 0) - (y.a.includes(':') ? 1 : 0));
-    return { ufrag, pwd, mid, setup: setup === 'active' ? 1 : setup === 'passive' ? 2 : 0, fp, cands: cands.slice(0, 3) };
+    return { ufrag, pwd, mid, setup: setup === 'active' ? 1 : setup === 'passive' ? 2 : 0, fp, cands: cands.slice(0, 6) };
   }
   /** kind 1 = join request (guest -> host), kind 2 = reply (host -> guest). */
   function packInvite(kind, sdp) {
@@ -1170,9 +1295,9 @@
     const str = (t) => { out.push(t.length); for (const ch of t) out.push(ch.charCodeAt(0) & 255); };
     str(s.ufrag); str(s.pwd); str(s.mid);
     out.push(...s.fp);
-    // A join request carries no addresses: the host just waits for the
-    // guest's own connection checks, so it never gives up while you paste.
-    const cands = kind === 2 ? s.cands : [];
+    // Both codes carry every local address: Windows firewalls only let the
+    // other side in once traffic has gone out to it, so both ends must knock.
+    const cands = s.cands;
     out.push(cands.length);
     for (const c of cands) {
       const m = IP4.exec(c.a);
@@ -1202,7 +1327,7 @@
       const fp = Array.from(b.slice(i, i + 32), v => v.toString(16).toUpperCase().padStart(2, '0')).join(':'); i += 32;
       need(1);
       const n = b[i++], cands = [];
-      if (n > 3) return null;
+      if (n > 6) return null;
       for (let k = 0; k < n; k++) {
         need(1);
         const ty = b[i++]; let a;
@@ -1684,8 +1809,9 @@
     }
     lobbyStatus() {
       if (this.games.length) return this.games.length > 1 && !this.sel ? 'Type the code and press Join (or tap a game first)' : 'Type the 4-digit code and press Join';
-      if (this.L && this.L.kind === 'local') return 'No Claude lobby in this copy: use "Join with an invite code" below';
+      if (this.L && this.L.kind === 'local') return 'No lobby here: open the DreamLand server address, or use an invite code';
       if (this.others) return this.others + (this.others === 1 ? ' friend is' : ' friends are') + ' here, but no game is open yet. Host: Pause > Open to Wi-Fi';
+      if (this.L && this.L.kind === 'server') return 'No games yet. The host picks Pause > Open to Wi-Fi';
       return 'Nobody else is in the lobby yet. Playing a downloaded copy? Use an invite code';
     }
     canJoin() { return /^\d{4}$/.test(this.field.value) && !this.joining; }

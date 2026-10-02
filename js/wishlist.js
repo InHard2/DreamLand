@@ -59,17 +59,28 @@
     flowers: P([0, 0, 0], [[-4, -1, -6, 2, 3, 2], [1, -1, -2, 2, 3, 2], [-2, -1, 3, 2, 3, 2], [3, -1, 6, 2, 3, 2]], { follow: 'body' }),
     hflower: P([0, 4, -8], [[-1, -7, -4, 2, 3, 2]], { follow: 'head' })
   }) };
+  // proportions and angles of Minecraft's horse
   const horseParts = (saddle) => {
     const p = {
-      body: P([0, 0, 0], [[-5, 3, -10, 10, 10, 22]]),
-      neck: P([0, 6, -8], [[-2, -11, -3, 4, 13, 6]]),
-      head: P([0, 6, -8], [[-3, -15, -10, 6, 5, 9], [-2.5, -17, -2, 1.5, 2, 1], [1, -17, -2, 1.5, 2, 1]]),
-      mane: P([0, 6, -8], [[-1, -15, 2.5, 2, 15, 2]]),
-      tail: P([0, 4, 12], [[-1.5, 0, -1, 3, 12, 3]]),
-      leg1: P([-3, 13, 8], [[-2, 0, -2, 4, 11, 4]]), leg2: P([3, 13, 8], [[-2, 0, -2, 4, 11, 4]]),
-      leg3: P([-3, 13, -7], [[-2, 0, -2, 4, 11, 4]]), leg4: P([3, 13, -7], [[-2, 0, -2, 4, 11, 4]])
+      body: P([0, 11, 5], [[-5, -8, -17, 10, 10, 22, 0.05]]),
+      head: P([0, 4, -12], [
+        [-2.05, -6, -2, 4, 12, 7],   // neck
+        [-3, -11, -2, 6, 5, 7],      // head
+        [-2, -11, -7, 4, 5, 5],      // muzzle
+        [0.55, -13, 4, 2, 3, 1],     // ears
+        [-2.55, -13, 4, 2, 3, 1]
+      ]),
+      mane: P([0, 4, -12], [[-1, -11, 5.01, 2, 16, 2]]),
+      tail: P([0, 4, 11], [[-1.5, 0, 0, 3, 14, 4]]),
+      leg1: P([4, 14, 7], [[-3, -1.01, -1, 4, 11, 4]]), leg2: P([-4, 14, 7], [[-1, -1.01, -1, 4, 11, 4]]),
+      leg3: P([4, 14, -10], [[-3, -1.01, -1.9, 4, 11, 4]]), leg4: P([-4, 14, -10], [[-1, -1.01, -1.9, 4, 11, 4]])
     };
-    if (saddle) p.saddle = P([0, 0, 0], [[-5.5, 2, -4, 11, 2, 10], [-6, 4, -0.5, 1, 6, 1], [5, 4, -0.5, 1, 6, 1]], { follow: 'body' });
+    if (saddle) p.saddle = P([0, 11, 5], [
+      [-5.2, -9, -10, 10.4, 1.2, 9],                       // seat
+      [-1.5, -10, -10, 3, 1, 2], [-1.5, -10, -2.5, 3, 1, 1.5], // pommel and cantle
+      [5.15, -8, -6, 0.4, 6, 1], [-5.55, -8, -6, 0.4, 6, 1],   // straps
+      [5.0, -2.2, -6.5, 1, 1, 2], [-6.0, -2.2, -6.5, 1, 1, 2]  // stirrups
+    ], { follow: 'body' });
     return p;
   };
   D.horse = { anim: 'horse', shadow: 0.9, parts: horseParts(false) };
@@ -101,13 +112,13 @@
     void e;
     return o;
   };
-  AN.horse = ({ e, o, q, headYaw, headPitch, age, amt }) => {
+  AN.horse = ({ e, o, headYaw, headPitch, age, amt, limb }) => {
     o.body = [0, 0, 0];
-    const lean = 0.5 - Math.min(0.25, amt * 0.25) + headPitch * 0.3;
-    o.neck = [lean, headYaw * 0.5, 0]; o.head = o.neck; o.mane = o.neck;
-    o.tail = [0.55 + Math.sin(age * 0.07) * 0.08 + amt * 0.3, Math.sin(age * 0.05) * 0.15, 0];
-    const g = e.rider ? 1.25 : 1;
-    o.leg1 = [q(0) * g, 0, 0]; o.leg2 = [q(Math.PI) * g, 0, 0]; o.leg3 = [q(Math.PI) * g, 0, 0]; o.leg4 = [q(0) * g, 0, 0];
+    const graze = !e.rider && e.grazing > 0 ? Math.min(1, e.grazing / 10) * 1.6 : 0;
+    o.head = [0.5236 + graze + headPitch * 0.4 - amt * 0.15, headYaw * 0.6, 0]; o.mane = o.head;
+    o.tail = [0.5236 + amt * 0.4 + Math.sin(age * 0.07) * 0.06, Math.sin(age * 0.04) * 0.12, 0];
+    const g = e.rider ? 1.3 : 1, sw = (a) => Math.cos(limb * 0.6662 + a) * 1.4 * amt * g;
+    o.leg1 = [sw(Math.PI), 0, 0]; o.leg2 = [sw(0), 0, 0]; o.leg3 = [sw(0), 0, 0]; o.leg4 = [sw(Math.PI), 0, 0];
     return o;
   };
   // sitting on horses and chairs: legs forward
@@ -157,15 +168,27 @@
     s.art('head', 0, 'front', ['........', '........', '.WK..KW.', '........', '..pppp..', '..pKKp..'], { W: hex('#ffffff'), K: hex('#141414'), p: hex('#f0b8a0') });
     for (const pn of ['flowers', 'hflower']) D.moobloom.parts[pn].boxes.forEach((b, bi) => s.fill(pn, bi, 'top', () => [120, 80, 20]));
   });
-  const COATS = ['#e8e4dc', '#7a5232', '#a0582a', '#2a2422'];
-  for (const sad of [false, true]) COATS.forEach((c, i) => {
-    const model = sad ? 'horse_saddled' : 'horse';
-    SP[model + '_' + i] = () => paint(model, 80 + i, { _: [c, 0.07], mane: [i === 0 ? '#c8c0b0' : '#1e1814', 0.08], tail: [i === 0 ? '#c8c0b0' : '#1e1814', 0.1], saddle: ['#6a3c1c', 0.06] }, (s) => {
-      s.art('head', 0, 'left', ['.........', '..KW.....'], { K: hex('#101010'), W: hex('#ffffff') });
-      s.art('head', 0, 'right', ['.........', '.....WK..'], { K: hex('#101010'), W: hex('#ffffff') });
-      for (const leg of ['leg1', 'leg2', 'leg3', 'leg4']) s.fill(leg, 0, 'front', (x, y, w, h) => y > h - 3 ? [40, 34, 30] : null);
+  // white, creamy, chestnut, brown, black, gray and dark brown coats, with markings
+  const COATS = [['#e8e4dc', '#c8c0b0'], ['#d8b880', '#f2ead8'], ['#9a5426', '#3a2216'], ['#6e4628', '#241812'], ['#262222', '#121010'], ['#8a8682', '#4a4644'], ['#4a3020', '#1a120c']];
+  const coatPaint = (model, i) => () => {
+    const [c, hair] = COATS[i], base = hex(c), hr = hex(hair);
+    const n = new S.Perlin(new S.RNG(90 + i));
+    const shade = (k, j) => [Math.min(255, base[0] * k * j), Math.min(255, base[1] * k * j), Math.min(255, base[2] * k * j)];
+    return paint(model, 80 + i, { _: [c, 0.05], mane: [hair, 0.12], tail: [hair, 0.14], saddle: ['#6a3c1c', 0.06], 'saddle:5': '#a8a8b0', 'saddle:6': '#a8a8b0', 'saddle:3': '#3a2414', 'saddle:4': '#3a2414' }, (s) => {
+      // soft dapples on the coat
+      for (const f of ['top', 'left', 'right', 'back', 'front']) s.fill('body', 0, f, (x, y) => { const v = n.noise(x / 3, y / 3, f.length); return shade(1 + v * 0.12, 1 + (s.r.next() - 0.5) * 0.06); });
+      // dark hooves and a lighter muzzle with nostrils
+      for (const leg of ['leg1', 'leg2', 'leg3', 'leg4']) s.fill(leg, 0, 'front,back,left,right,bottom', (x, y, w, h) => y >= h - 2 ? [52, 42, 36] : y >= h - 4 && i === 1 ? [240, 234, 220] : null);
+      s.fill('head', 2, 'all', () => shade(0.82, 1));
+      s.art('head', 2, 'front', ['....', '.K.K', '....'], { K: hex('#1a1210') });
+      // eyes on the sides of the head, a white blaze on some coats
+      s.art('head', 1, 'left', ['.......', '...WK..'], { W: hex('#f4f4f0'), K: hex('#101010') });
+      s.art('head', 1, 'right', ['.......', '..KW...'], { W: hex('#f4f4f0'), K: hex('#101010') });
+      if (i === 2 || i === 4 || i === 6) { s.art('head', 1, 'top', ['..W..', '..W..', '.WW..', '..W..', '..W..', '..WW.', '..W..'], { W: hex('#f0ece4') }); s.art('head', 2, 'top', ['.WW.', '.WW.', '.W..', '.W..', '.WW.'], { W: hex('#f0ece4') }); }
+      s.fill('head', 3, 'all', () => shade(0.9, 1)); s.fill('head', 4, 'all', () => shade(0.9, 1));
     });
-  });
+  };
+  for (const sad of [false, true]) COATS.forEach((c, i) => { const model = sad ? 'horse_saddled' : 'horse'; SP[model + '_' + i] = coatPaint(model, i); });
   SP.iceologer = () => {
     const s = new Skin('pillager', 75), mdl = D.pillager;
     const col = { head: '#9aa4b0', body: '#7fb3e0', rarm: '#7fb3e0', larm: '#7fb3e0', rleg: '#5a7fa8', lleg: '#5a7fa8' };
@@ -259,18 +282,18 @@
   /* Horses (ride with an empty hand, steer with a saddle)        */
   /* ------------------------------------------------------------ */
   add('horse', { w: 1.3, h: 1.6, hp: 22, speed: 0.75, sound: 'cow', drops: [[334, 2]],
-    init: (m) => { if (m.variant === undefined) m.variant = Math.floor(rnd() * 4); },
-    modelFor: (e) => ((e.variant || 0) & 4) ? 'horse_saddled' : 'horse',
-    skinFor: (e) => (((e.variant || 0) & 4) ? 'horse_saddled_' : 'horse_') + ((e.variant || 0) & 3),
+    init: (m) => { if (m.variant === undefined) m.variant = Math.floor(rnd() * 7); },
+    modelFor: (e) => ((e.variant || 0) & 8) ? 'horse_saddled' : 'horse',
+    skinFor: (e) => (((e.variant || 0) & 8) ? 'horse_saddled_' : 'horse_') + (((e.variant || 0) & 7) % 7),
     interact: horseInteract, ai: horseAI });
-  const saddled = (m) => ((m.variant || 0) & 4) !== 0;
+  const saddled = (m) => ((m.variant || 0) & 8) !== 0;
   function horseInteract(m, p, game) {
     const now = performance.now();
     if ((game._rideCd || 0) > now) return true;
     game._rideCd = now + 350;
     const held = p.held;
     if (held && held.id === 329 && !saddled(m)) {
-      m.variant = (m.variant || 0) | 4; m.persistent = true;
+      m.variant = (m.variant || 0) | 8; m.persistent = true;
       if (!p.creative) p.consumeHeld(1);
       sound(m, 'cloth', 0.8, 1); fxAt(m, 'happy', 6, 0.6);
       game.chatMessage('§eSaddled! Hop on with an empty hand.');
@@ -315,6 +338,8 @@
       return;
     }
     if (m.rider) m.speedMul = 1.2;
+    if (m.grazing > 0) { m.grazing--; m.moveForward = m.moveStrafe = 0; m.path = null; return; }
+    if (!m.rider && !m.path && rnd() < 0.004) { m.grazing = 50 + Math.floor(rnd() * 60); return; }
     m.aiTick();
   }
 
@@ -323,7 +348,7 @@
   /* ------------------------------------------------------------ */
   const PL = E.Player.prototype;
   function seatPos(p) {
-    if (p.vehicle) { const m = p.vehicle; return [m.x - Math.sin(m.yaw) * 0.15, m.y + 0.78, m.z - Math.cos(m.yaw) * 0.15]; }
+    if (p.vehicle) { const m = p.vehicle; return [m.x + Math.sin(m.yaw) * 0.1, m.y + 0.66, m.z + Math.cos(m.yaw) * 0.1]; }
     if (p.sitting) { const s = p.sitting; return [s.x + 0.5, s.y - 0.22, s.z + 0.5]; }
     return null;
   }
@@ -415,7 +440,9 @@
   function ambient(g) {
     const r = g.renderer, w = g.world, p = g.player;
     if (!r || !r.addParticle || (w.dim || 0) !== 0) return;
-    if (g.tickCount % 20 === 0) { flies = 0; leaves = 0; for (const q of r.particles) { if (q.type === 'firefly') flies++; else if (q.type === 'leaf') leaves++; } }
+    if (g.tickCount % 20 === 0) { leaves = 0; for (const q of r.particles) if (q.type === 'leaf') leaves++; }
+    tickFireflies(w);
+    flies = FF.length;
     const px = Math.floor(p.x), pz = Math.floor(p.z);
     // fireflies at night in leafy, watery places
     const night = (w.skySubtracted ? w.skySubtracted(0) : 0) >= 7;
@@ -425,7 +452,7 @@
         const x = px + rnd() * 32 - 16, z = pz + rnd() * 32 - 16, top = w.topSolidY(Math.floor(x), Math.floor(z));
         if (!top || Math.abs(top - p.y) > 16 || w.getBlock(Math.floor(x), top, Math.floor(z)) !== 0) continue;
         const y = top + 0.4 + rnd() * 3.5;
-        r.addParticle({ type: 'firefly', tex: 'particle', cellX: 2, cellY: 3, frame: 0, x, y, z, px: x, py: y, pz: z, vx: 0, vy: 0, vz: 0, gravity: 0, drag: 0.9, life: 160 + Math.floor(rnd() * 160), age: 0, size: 0.13, r: 0.85, g: 1, b: 0.35, a: 0, fullBright: true, phase: rnd() * 6.28 });
+        FF.push({ x, y, z, px: x, py: y, pz: z, vx: 0, vy: 0, vz: 0, age: 0, life: 200 + Math.floor(rnd() * 240), phase: rnd() * 6.28, rate: 0.06 + rnd() * 0.06 });
         flies++;
       }
     }
@@ -443,14 +470,63 @@
       }
     }
   }
+  /* Fireflies are two pixels: a dark body and a tail that blinks yellow */
+  const FF = [];
+  function tickFireflies(w) {
+    let j = 0;
+    for (let i = 0; i < FF.length; i++) {
+      const f = FF[i];
+      f.px = f.x; f.py = f.y; f.pz = f.z;
+      if (++f.age > f.life) continue;
+      f.vx += (rnd() - 0.5) * 0.008; f.vy += (rnd() - 0.5) * 0.006; f.vz += (rnd() - 0.5) * 0.008;
+      f.vx *= 0.92; f.vy *= 0.92; f.vz *= 0.92;
+      const nx = f.x + f.vx, ny = f.y + f.vy, nz = f.z + f.vz;
+      if (S.SOLID[w.getBlock(Math.floor(nx), Math.floor(ny), Math.floor(nz))]) { f.vx = -f.vx; f.vy = Math.abs(f.vy) + 0.01; f.vz = -f.vz; }
+      else { f.x = nx; f.y = ny; f.z = nz; }
+      FF[j++] = f;
+    }
+    FF.length = j;
+  }
+  DL.Wishlist = { fireflies: () => FF, addFirefly: (x, y, z) => FF.push({ x, y, z, px: x, py: y, pz: z, vx: 0, vy: 0, vz: 0, age: 30, life: 600, phase: rnd() * 6.28, rate: 0.06 + rnd() * 0.06 }) };
+  const PX = 1 / 16;
+  RP.renderFireflies = function (world, pt) {
+    if (!FF.length || DL.game.world !== world) return;
+    const cam = this.cam, v = this.view;
+    const rt = [v[0], v[4], v[8]], up = [v[1], v[5], v[9]];
+    const sub = this.skySub || 0, h = PX / 2;
+    DL.M4.multiply(this.mvp, this.proj, this.view);
+    this.begin();
+    const quad = (cx, cy, cz, col) => {
+      const P = (a, b) => [cx + rt[0] * a + up[0] * b, cy + rt[1] * a + up[1] * b, cz + rt[2] * a + up[2] * b];
+      this.quadV([P(-h, -h), P(h, -h), P(h, h), P(-h, h)], null, col);
+    };
+    for (const f of FF) {
+      const x = f.px + (f.x - f.px) * pt - cam.x, y = f.py + (f.y - f.py) * pt - cam.y, z = f.pz + (f.z - f.pz) * pt - cam.z;
+      const bx = Math.floor(f.x), by = Math.floor(f.y), bz = Math.floor(f.z);
+      const l = Math.max(0, world.getSky(bx, by, bz) - sub, world.getBlockLight(bx, by, bz)) / 15, lit = 0.1 + 0.9 * l * l;
+      const s = Math.sin((f.age + pt) * f.rate + f.phase), on = s > 0.3 ? Math.min(1, (s - 0.3) * 4) : 0;
+      const fade = Math.min(1, f.age / 20, (f.life - f.age) / 20);
+      // facing the same way as you, the body sits left of the glowing tail
+      quad(x - rt[0] * h, y - rt[1] * h, z - rt[2] * h, [0.2 * lit, 0.13 * lit, 0.07 * lit, fade]);
+      const gr = 0.42 * lit, gg = 0.4 * lit, gb = 0.3 * lit;
+      quad(x + rt[0] * h, y + rt[1] * h, z + rt[2] * h, [gr + (1 - gr) * on, gg + (0.95 - gg) * on, gb + (0.25 - gb) * on, fade]);
+    }
+    const gl = this.gl;
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.CULL_FACE);
+    this.flush('quads', { fog: true });
+    gl.enable(gl.CULL_FACE); gl.disable(gl.BLEND);
+  };
+  const renderBillboards = RP.renderBillboards;
+  RP.renderBillboards = function (world, pt) {
+    const out = renderBillboards.apply(this, arguments);
+    try { this.renderFireflies(world, pt); } catch (e) { console.warn('fireflies', e); }
+    return out;
+  };
   const tickParticles = RP.tickParticles;
   RP.tickParticles = function (world) {
     for (const q of this.particles) {
-      if (q.type === 'firefly') {
-        q.vx += (rnd() - 0.5) * 0.012; q.vy += (rnd() - 0.5) * 0.008; q.vz += (rnd() - 0.5) * 0.012;
-        const f = Math.sin(q.age * 0.12 + q.phase);
-        q.a = Math.min(1, q.age / 20, (q.life - q.age) / 20) * (f > 0.2 ? 1 : 0.15 + Math.max(0, f + 0.2) * 3);
-      } else if (q.type === 'leaf' && !q.ground) {
+      if (q.type === 'leaf' && !q.ground) {
         q.vx += Math.sin(q.age * 0.07 + q.phase) * 0.0016; q.vz += Math.cos(q.age * 0.05 + q.phase) * 0.0016;
         if (q.vy < -0.04) q.vy = -0.04;
       } else if (q.type === 'leaf' && q.ground) q.a = Math.max(0, Math.min(1, (q.life - q.age) / 30));
