@@ -970,6 +970,7 @@ function DL_SHARED_FACTORY() {
     if (this.n >= this.cap) this.alloc(this.cap * 2);
     const o = this.n << 3;
     this.i16[o] = Math.round(x * 256); this.i16[o + 1] = Math.round(y * 256); this.i16[o + 2] = Math.round(z * 256);
+    this.u16[o + 3] = this.tint || 0;
     this.u16[o + 4] = (u * 65535 + 0.5) | 0; this.u16[o + 5] = (v * 65535 + 0.5) | 0;
     const b = (this.n << 4) + 12;
     this.u8[b] = sky; this.u8[b + 1] = blk; this.u8[b + 2] = shade; this.u8[b + 3] = flags;
@@ -1020,6 +1021,64 @@ function DL_SHARED_FACTORY() {
     return [(tx + uu) / 16, (ty + vv) / 16];
   }
 
+  /* Biome colours (grass, foliage, water) as multipliers of the plains colours our textures are painted in. */
+  const BIOME_COLORS = (() => {
+    const h = (s) => [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+    const g = {}, f = {}, w = {};
+    const set = (names, grass, fol, water) => { for (const n of names.split(' ')) { if (grass) g[n] = h(grass); if (fol) f[n] = h(fol); if (water) w[n] = h(water); } };
+    set('PLAINS SUNFLOWER_PLAINS BEACH SEASONAL', '91BD59', '77AB2F');
+    set('FOREST FLOWER_FOREST', '79C05A', '59AE30');
+    set('BIRCH_FOREST OLD_GROWTH_BIRCH', '88BB67', '6BA941');
+    set('DARK_FOREST', '507A32', '59AE30');
+    set('PALE_GARDEN', '778272', '878D76', '76889D');
+    set('SWAMP', '6A7039', '6A7039', '617B64');
+    set('MANGROVE_SWAMP', '8DB127', '8DB127', '3A7A6A');
+    set('TAIGA OLD_GROWTH_TAIGA', '86B783', '68A464', '287082');
+    set('TUNDRA SNOWY_TAIGA ICE_SPIKES GROVE SNOWY_SLOPES SNOWY_BEACH FROZEN_PEAKS JAGGED_PEAKS', '80B497', '60A17B', '3D57D6');
+    set('JUNGLE BAMBOO_JUNGLE', '59C93C', '30BB0B');
+    set('SPARSE_JUNGLE', '64C73F', '3EB80F');
+    set('SAVANNA SAVANNA_PLATEAU DESERT', 'BFB755', 'AEA42A');
+    set('BADLANDS ERODED_BADLANDS WOODED_BADLANDS', '90814D', '9E814D');
+    set('MUSHROOM_FIELDS', '55C93F', '2BBB0F');
+    set('MEADOW', '83BB6D', '63A948', '0E4ECF');
+    set('CHERRY_GROVE', 'B6DB61', 'B6DB61', '5DB7EF');
+    set('WINDSWEPT_HILLS WINDSWEPT_FOREST STONY_SHORE', '8AB689', '6DA36B', '3F76E4');
+    set('STONY_PEAKS', '9ABE4B', '82AC1E');
+    set('WARM_OCEAN', null, null, '43D5EE');
+    set('FROZEN_OCEAN FROZEN_RIVER', null, null, '3938C9');
+    set('DEEP_OCEAN', null, null, '3D57D6');
+    const ref = [h('91BD59'), h('77AB2F'), h('3F76E4')], out = [];
+    for (const k in BIOME) {
+      const id = BIOME[k], cols = [g[k] || ref[0], f[k] || ref[1], w[k] || ref[2]];
+      out[id] = cols.map((c, i) => c.map((v, j) => Math.min(1.99, v / ref[i][j])));
+    }
+    return out;
+  })();
+  /** 0 = untinted, 1 = grass, 2 = foliage, 3 = water. */
+  const TINT_KIND = new Uint8Array(256);
+  for (const n of ['grass', 'short_grass', 'fern']) TINT_KIND[B[n]] = 1;
+  for (const n of ['leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves']) TINT_KIND[B[n]] = 2;
+  TINT_KIND[B.water] = 3;
+  S.TINT_KIND = TINT_KIND;
+  const pack = (r, g, b) => Math.max(1, (Math.round(Math.min(1, r / 2) * 31) << 11) | (Math.round(Math.min(1, g / 2) * 63) << 5) | Math.round(Math.min(1, b / 2) * 31));
+  /** Per column tint codes for one chunk from its padded 18x18 biome map, blended 3x3. */
+  function biomeTints(bio) {
+    const out = new Uint16Array(768);
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      for (let k = 0; k < 3; k++) {
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let dz = 0; dz <= 2; dz++) for (let dx = 0; dx <= 2; dx++) {
+          const c = BIOME_COLORS[bio[(z + dz) * 18 + x + dx]] || BIOME_COLORS[0];
+          r += c[k][0]; g += c[k][1]; b += c[k][2]; n++;
+        }
+        r /= n; g /= n; b /= n;
+        out[k * 256 + (z << 4) + x] = (Math.abs(r - 1) < 0.02 && Math.abs(g - 1) < 0.02 && Math.abs(b - 1) < 0.02) ? 0 : pack(r, g, b);
+      }
+    }
+    return out;
+  }
+  S.biomeTints = biomeTints; S.BIOME_COLORS = BIOME_COLORS;
+
   function Mesher() {
     this.solid = new VBuf(4096);
     this.trans = new VBuf(1024);
@@ -1039,12 +1098,15 @@ function DL_SHARED_FACTORY() {
     if (!fancy) for (let id = 0; id < 256; id++) if (LEAVES[id]) opq[id] = 1;
     this.solid.n = 0; this.trans.n = 0;
     this.bl = bl; this.me = me; this.li = li; this.fancy = fancy; this.smooth = smooth;
+    const tints = job.biomes ? biomeTints(job.biomes) : null;
+    this.solid.tint = this.trans.tint = 0;
     for (let y = 0; y < 16; y++) {
       for (let z = 0; z < 16; z++) {
         let i = (y + 1) * P2 + (z + 1) * P + 1;
         for (let x = 0; x < 16; x++, i++) {
           const id = bl[i];
           if (id === 0) continue;
+          if (tints) { const k = TINT_KIND[id]; this.solid.tint = this.trans.tint = k ? tints[(k - 1) * 256 + (z << 4) + x] : 0; }
           switch (RENDER[id]) {
             case R.CUBE: this.cube(i, id, x, y, z); break;
             case R.CROSS: this.cross(i, id, x, y, z, 0.45); break;

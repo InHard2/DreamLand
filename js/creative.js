@@ -45,15 +45,15 @@
   ];
   const EGG_BASE = 470;
   const eggOf = new Map();
-  EGGS.forEach(([mob, c1, c2], i) => {
-    const id = EGG_BASE + i;
-    if (id > 511 || I.defs[id]) return;
+  function addEgg(mob, c1, c2, id) {
+    if (id > 1023 || I.defs[id]) return;
     const name = mob + '_spawn_egg';
     I._def(id, name, { display: I._titleCase(mob) + ' Spawn Egg', spawnEgg: mob });
     const b = hex(c1), s = hex(c2);
     DL.Tex.ITEM_ART[name] = [EGG_ROWS, { o: shade(b, 0.45), b, h: shade(b, 1.35), d: shade(b, 0.78), s }, 0];
     eggOf.set(id, mob);
-  });
+  }
+  EGGS.forEach(([mob, c1, c2], i) => addEgg(mob, c1, c2, EGG_BASE + i));
 
   // A mushroom-dotted red cow for the mushroom fields
   if (E.MOBS.cow && !E.MOBS.mooshroom) {
@@ -122,6 +122,7 @@
   ];
   function tabOf(d) {
     const n = d.name;
+    if (d.tab) return d.tab;
     if (d.isBlock) {
       if (REDSTONE.has(n)) return 'redstone';
       if (FUNCTIONAL.has(n) || S.blocks[d.block].emit >= 12) return 'functional';
@@ -249,7 +250,7 @@
     buildSlots() {
       const p = this.player;
       if (this.tab === 'inventory') {
-        for (let i = 0; i < 4; i++) this.slots.push({ x: 9 + i * 18, y: 6 + 12, get: () => p.armor[i], set: (s) => { p.armor[i] = s; }, armor: i, ghost: null });
+        for (let i = 0; i < 4; i++) this.slots.push({ x: 9 + (i >> 1) * 18, y: 8 + (i & 1) * 22, get: () => p.armor[i], set: (s) => { p.armor[i] = s; }, armor: i, ghost: null });
         this.slots.push({ x: 173, y: 112, trash: true, get: () => null, set: () => { } });
         for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) {
           const i = 9 + r * 9 + c;
@@ -388,7 +389,17 @@
       const si = tabs.findIndex(t => t.id === this.tab);
       if (si >= 0) this.drawTab(si, tabs[si], mx, my);
       const cur = TABS.find(t => t.id === this.tab);
-      this.drawLabel(cur ? cur.name : '', 8, 6);
+      this.preview = null;
+      if (this.tab === 'inventory') {
+        // a window the renderer draws your 3D model through (like the survival inventory)
+        const bx = this.px + 52, by = this.py + 4;
+        G.rect(bx, by, 36, 48, '#000');
+        G.ctx.clearRect(bx + 1, by + 1, 34, 46);
+        this.preview = [bx + 1, by + 1, 34, 46];
+        this.previewLook = [(mx - bx - 18) / 30, (my - by - 14) / 30];
+        this.drawLabel('Armor', 94, 8);
+        this.drawLabel('Inventory', 94, 42);
+      } else this.drawLabel(cur ? cur.name : '', 8, 6);
       if (this.hasGrid()) {
         const tx = this.px + 175, ty = this.py + 18, th = 90;
         G.rect(tx, ty, 12, th, '#8B8B8B');
@@ -397,10 +408,7 @@
         G.rect(tx + 1, ky, 10, 15, ms ? '#E0E0E0' : '#A0A0A0'); G.rect(tx + 1, ky + 14, 10, 1, '#5A5A5A'); G.rect(tx + 10, ky, 1, 15, '#5A5A5A');
         if (!this.items.length) G.textC(this.tab === 'search' ? 'No items found' : 'Nothing here yet', this.px + 88, this.py + 56, '#555555', false);
       }
-      if (this.tab === 'inventory') {
-        this.drawLabel('Armor', 82, 22);
-        G.rect(this.px + 172, this.py + 111, 18, 18, '#8B3030');
-      }
+      if (this.tab === 'inventory') G.rect(this.px + 172, this.py + 111, 18, 18, '#8B3030');
       if (this.tab === 'world') {
         this.drawLabel(this.worldNote || '', 8, 86);
         this.drawLabel('Hotbar', 8, 101);
@@ -420,5 +428,5 @@
     close() { this.player.cursor = null; if (this.activeField) this.deactivateField(this.activeField); }
   }
   G.CreativeScreen = CreativeScreen;
-  DL.Creative = { tabOf, TABS, EGGS };
+  DL.Creative = { tabOf, TABS, EGGS, addEgg: (mob, c1, c2, id) => { addEgg(mob, c1, c2, id); lists = null; } };
 })();

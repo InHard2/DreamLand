@@ -460,7 +460,9 @@
         { slider: true, label: () => 'FOV: ' + (st.fov === 0.5 ? 'Normal' : st.fov >= 1 ? 'Quake Pro' : Math.round(30 + st.fov * 80)), value: st.fov, set: v => { st.fov = v; } },
         { slider: true, label: () => 'Brightness: ' + (st.gamma === 0 ? 'Moody' : st.gamma === 1 ? 'Bright' : '+' + Math.round(st.gamma * 100) + '%'), value: st.gamma, set: v => { st.gamma = v; } },
         { label: () => 'Clouds: ' + OPT_TOGGLE(st.clouds), click: () => { st.clouds = !st.clouds; } },
-        { label: () => 'Show FPS: ' + OPT_TOGGLE(st.showFps), click: () => { st.showFps = !st.showFps; } }
+        { label: () => 'Show FPS: ' + OPT_TOGGLE(st.showFps), click: () => { st.showFps = !st.showFps; } },
+        { label: () => 'Minimap: ' + OPT_TOGGLE(st.minimap !== false), click: () => { st.minimap = st.minimap === false; } },
+        { label: () => 'Biome colours: ' + OPT_TOGGLE(st.biomeTint !== false), click: () => { st.biomeTint = st.biomeTint === false; this.game.applySettings(true); } }
       ];
       opts.forEach((o, i) => {
         if (o.slider) {

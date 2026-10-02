@@ -717,8 +717,9 @@
       const p = this.player, w = this.world;
       const ex = p.x, ey = p.y + p.eye - (p.sneaking ? 0.08 : 0), ez = p.z;
       const d = p.look();
-      const hit = E.raycast(w, ex, ey, ez, d[0], d[1], d[2], REACH, false);
-      let best = null, bestT = Math.min(3.5, hit ? hit.t : 3.5);
+      const reach = this.reachBonus ? REACH + this.reachBonus() : REACH;
+      const hit = E.raycast(w, ex, ey, ez, d[0], d[1], d[2], reach, false);
+      let best = null, bestT = Math.min(reach - 1, hit ? hit.t : reach - 1);
       for (const e of w.entities) {
         if (e === p || !e.living || e.removed || e.health <= 0) continue;
         const b = e.box;
@@ -1215,7 +1216,7 @@
       if (scr) scr.draw(G.mouse.x, G.mouse.y, pt);
       if (this.fadeIn > 0) { G.rect(0, 0, G.W, G.H, 'rgba(0,0,0,' + Math.min(1, this.fadeIn) + ')'); this.fadeIn -= dt * 2; }
       // player preview in inventory
-      if (scr instanceof G.InventoryScreen && scr.preview) {
+      if (scr && scr.preview && scr.previewLook) {
         const k = G.scale * r.w / G.canvas.width;
         const [x, y, w, h] = scr.preview;
         r.renderPlayerPreview(this.player, Math.round(x * k), Math.round(y * k), Math.round(w * k), Math.round(h * k), scr.previewLook[0], scr.previewLook[1]);

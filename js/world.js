@@ -666,7 +666,16 @@
         }
       }
     }
-    return { t: 'mesh', key: 0, ver: s.ver, blocks, meta, light, fancy: this.fancy, smooth: this.smooth, nonAir };
+    // padded 18x18 biome map so grass, leaves and water take their biome's colour
+    let biomes = null;
+    if (!(this.dim || 0) && !(DL.game && DL.game.settings && DL.game.settings.biomeTint === false)) {
+      biomes = new Uint8Array(324);
+      for (let pz = 0; pz < 18; pz++) for (let px = 0; px < 18; px++) {
+        const lx = px - 1, lz = pz - 1, ch = nb[(lz < 0 ? 0 : lz > 15 ? 2 : 1) * 3 + (lx < 0 ? 0 : lx > 15 ? 2 : 1)] || c;
+        biomes[pz * 18 + px] = ch.biomes ? ch.biomes[((lz & 15) << 4) | (lx & 15)] : 0;
+      }
+    }
+    return { t: 'mesh', key: 0, ver: s.ver, blocks, meta, light, biomes, fancy: this.fancy, smooth: this.smooth, nonAir };
   };
 
   World.prototype.processMeshing = function (pcx, pcz, budgetMs) {
@@ -819,14 +828,15 @@
     const cx8 = bx + 8, cz8 = bz + 8;
     if (r.nextInt(biome === BI.DESERT ? 40 : 9) === 0) {
       const mush = biome === BI.MUSHROOM_FIELDS;
-      const types = mush ? ['mooshroom'] : ['pig', 'pig', 'cow', 'cow', 'sheep', 'sheep', 'chicken', 'chicken'];
+      const special = DL.biomeAnimals ? DL.biomeAnimals(biome) : null;
+      const types = mush ? ['mooshroom'] : special || ['pig', 'pig', 'cow', 'cow', 'sheep', 'sheep', 'chicken', 'chicken'];
       const type = types[r.nextInt(types.length)];
       const n = 2 + r.nextInt(3);
       for (let i = 0; i < n; i++) {
         const x = cx8 + r.nextInt(16), z = cz8 + r.nextInt(16);
         const y = this.topSolidY(x, z);
         const gb = this.getBlock(x, y - 1, z);
-        if (gb !== B.grass && !(mush && gb === B.mycelium) && gb !== B.podzol) continue;
+        if (gb !== B.grass && !(mush && gb === B.mycelium) && gb !== B.podzol && !(special && DL.biomeAnimalGround.includes(gb))) continue;
         const k = ckey(x >> 4, z >> 4);
         if (!this.pendingAnimals) this.pendingAnimals = new Map();
         if (!this.pendingAnimals.has(k)) this.pendingAnimals.set(k, []);

@@ -6,10 +6,13 @@
   const S = DL.S, B = S.B, M4 = DL.M4;
 
   const TERRAIN_VS = `
-attribute vec3 aPos; attribute vec2 aUV; attribute vec4 aLight;
+attribute vec3 aPos; attribute vec2 aUV; attribute vec4 aLight; attribute float aTint;
 uniform mat4 uProj, uView, uModel; uniform highp float uTime; uniform vec3 uCamPos;
-varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos;
+varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos; varying vec3 vTint;
 void main(){
+  // biome colour multiplier, packed as RGB565 of (ratio / 2); 0 = untinted
+  vTint = vec3(1.0);
+  if (aTint > 0.5) { highp float t = floor(aTint + 0.5); vTint = vec3(floor(t / 2048.0) / 31.0, floor(mod(t, 2048.0) / 32.0) / 63.0, mod(t, 32.0) / 31.0) * 2.0; }
   vec3 lp = aPos * (1.0/256.0);
   vec4 wp = uModel * vec4(lp, 1.0);
   float fl = floor(aLight.w * 255.0 + 0.5);
@@ -37,13 +40,18 @@ precision mediump float;
 uniform sampler2D uTex;
 uniform float uSkySub, uAlphaTest, uGamma, uFogDensity, uFogMode, uAmb;
 uniform vec3 uFogColor; uniform vec2 uFog; uniform vec3 uLightOv; uniform vec4 uTint; uniform vec4 uDyn, uDyn2; uniform highp float uTime;
-varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos;
+varying vec2 vUV; varying float vSky, vBlk, vShade, vDist; varying float vFlag; varying vec3 vPos; varying vec3 vTint;
 float bright(float l){ float f = 1.0 - l/15.0; float b = (1.0-f)/(f*3.0+1.0)*(0.95-uAmb)+0.05+uAmb; float g = 1.0 - pow(1.0-b, 4.0); return mix(b, g, uGamma); }
 void main(){
   vec4 t = texture2D(uTex, vUV);
   bool solidLeaf = vFlag > 4.5 / 255.0 && vFlag < 5.5 / 255.0;
   if (solidLeaf) { if (t.a < 0.5) t = vec4(0.09, 0.16, 0.05, 1.0); t.a = 1.0; }
   if (t.a < uAlphaTest) discard;
+  if (vTint != vec3(1.0)) {
+    // tint green pixels (grass, leaves, plants) and all of the water
+    float gw = floor(vFlag * 255.0 + 0.5) == 3.0 ? 1.0 : clamp((t.g - max(t.r, t.b)) * 7.0, 0.0, 1.0);
+    t.rgb = mix(t.rgb, clamp(t.rgb * vTint, 0.0, 1.0), gw);
+  }
   float sky = uLightOv.x > 0.5 ? uLightOv.y : vSky * 15.0;
   float blk = uLightOv.x > 0.5 ? uLightOv.z : vBlk * 15.0;
   if (uDyn.w > 0.0) blk = max(blk, uDyn.w - length(vPos - uDyn.xyz));
@@ -150,7 +158,8 @@ void main(){
 
   Renderer.prototype.initGL = function () {
     const gl = this.gl;
-    this.terrainShader = this.compile(TERRAIN_VS, TERRAIN_FS, ['aPos', 'aUV', 'aLight']);
+    this.terrainShader = this.compile(TERRAIN_VS, TERRAIN_FS, ['aPos', 'aUV', 'aLight', 'aTint']);
+    this.gl.vertexAttrib1f(3, 0);
     this.entityShader = this.compile(ENTITY_VS, ENTITY_FS, ['aPos', 'aUV', 'aNormal']);
     this.basicShader = this.compile(BASIC_VS, BASIC_FS, ['aPos', 'aUV', 'aColor']);
     // quad index buffer (16384 quads, uint16)
@@ -390,7 +399,10 @@ void main(){
       gl.vertexAttribPointer(0, 3, gl.SHORT, false, 16, off);
       gl.vertexAttribPointer(1, 2, gl.UNSIGNED_SHORT, true, 16, off + 8);
       gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 16, off + 12);
+      gl.vertexAttribPointer(3, 1, gl.UNSIGNED_SHORT, false, 16, off + 6);
+      gl.enableVertexAttribArray(3);
       gl.drawElements(gl.TRIANGLES, (cnt / 4) * 6, gl.UNSIGNED_SHORT, 0);
+      gl.disableVertexAttribArray(3);
     }
   };
 
@@ -923,7 +935,7 @@ void main(){
         const def = e.def;
         let skin = null;
         if (def) {
-          type = def.model || type;
+          type = (def.modelFor && def.modelFor(e)) || def.model || type;
           skin = def.skinFor ? def.skinFor(e) : def.skin || null;
           const sc = e.scale || def.scale || 1;
           if (sc !== 1 || e.squish) {

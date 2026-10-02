@@ -55,5 +55,14 @@ Over 40 biomes from today's Minecraft: cherry groves, mangrove swamps, badlands 
 ## Creative inventory
 Tabs like modern Minecraft: Building, Colored, Natural, Functional and Redstone blocks, Tools, Combat, Food, Ingredients, Spawn Eggs (every mob), Search and the Survival Inventory. The **World & Weather** tab sets the time, toggles flying and has **Rain: ON/OFF** to keep the sky clear for good.
 
+## The Wishlist update (things Mojang should have added)
+- **The mob-vote losers, finally here:** the **Glare** floats around lush caves and turns grumpy (red eyes, smoke) where it's dark enough for monsters to spawn; the **Moobloom** (flower cow) leaves buttercups behind; **Penguins** waddle on snowy shores, belly-slide on ice and swim fast; **Crabs** scuttle sideways in mangroves and on beaches and drop **crab claws** (keep one in your hotbar for +3 reach); the **Iceologer** haunts snowy mountains and drops chunks of ice on you.
+- **Fireflies** glow at night in swamps, forests, meadows and cherry groves, and **leaves (and cherry petals) drift down** from the trees.
+- **Horses** in plains, savannas and meadows: right-click with an empty hand to ride, put on a **saddle** to steer (sprint to gallop, jump to leap), sneak to get off. Saddles are craftable: 3 leather on top, leather-iron-leather below.
+- **Chairs:** right-click a stair with an empty hand to sit down.
+- **Biome colours:** grass, leaves and water change colour with the biome (dark swamps, golden savannas, bright jungles, turquoise warm oceans).
+- **Minimap** with coordinates and the biome name (M to toggle, or Options), **death coordinates** in chat, and a **Sort** button in your inventory and chests.
+- The creative inventory's Survival Inventory tab now shows your 3D character, and there are spawn eggs for all the new creatures.
+
 ## Controls
-WASD move · double-tap W or R sprint · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · F5 camera · F3 debug · F2 screenshot. Sprint on touch by pushing the stick past its ring, on a controller by clicking the left stick. Touch and controller layouts are listed in *Help & Controls* in-game.
+WASD move · double-tap W or R sprint · Space jump · Shift sneak · Mouse look · LMB break/attack · RMB place/use · 1-9/wheel hotbar · E inventory · Q drop · T chat · M minimap · F5 camera · F3 debug · F2 screenshot. Sprint on touch by pushing the stick past its ring, on a controller by clicking the left stick. Touch and controller layouts are listed in *Help & Controls* in-game.

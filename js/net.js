@@ -27,7 +27,7 @@
   const clean = (s, max) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f§​-‏‪-‮⁠-⁯﻿]/g, '').slice(0, max);
   function validStack(s) {
     if (s === null) return null;
-    if (!s || typeof s !== 'object' || !isInt(s.id, 1, 511)) return undefined;
+    if (!s || typeof s !== 'object' || !isInt(s.id, 1, 1023)) return undefined;
     const d = I.get(s.id);
     if (!d || !isInt(s.count, 1, d.maxStack || 64)) return undefined;
     const dmg = s.dmg === undefined ? 0 : s.dmg;
@@ -702,7 +702,7 @@
       if (this.game.world) { this.game.world.netHost = null; this.game.world.extraCenters = null; }
     }
   }
-  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer'];
+  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer', 'grumpy', 'sliding'];
   function encodeEnt(e, host) {
     const t = e.type;
     if (!t) return null;

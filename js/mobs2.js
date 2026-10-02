@@ -647,6 +647,7 @@
         if (dim === 0) {
           type = weighted(r, OW_HOSTILE);
           if (biome === S.BIOME.MUSHROOM_FIELDS) continue; // no monsters on the mushroom islands
+          if (DL.mountainHostile) type = DL.mountainHostile(biome) || type;
           if (type === 'zombie' && (biome === S.BIOME.DESERT || biome === S.BIOME.BADLANDS || biome === S.BIOME.ERODED_BADLANDS)) type = 'husk';
           if (type === 'skeleton' && S.SNOWY[biome]) type = 'stray';
           if (type === 'slime' && y > 40) continue;
@@ -688,11 +689,13 @@
       const g = world.getBlock(x, y - 1, z);
       const biome = c.biomes ? c.biomes[((z & 15) << 4) | (x & 15)] : 0;
       const BIm = S.BIOME;
-      if (g !== ground && !(dim === 0 && (g === B.mycelium || g === B.podzol || ((g === B.sand || g === B.red_sand || g === B.snow_layer || g === B.snow_block) && (biome === BIm.DESERT || S.SNOWY[biome] || biome === BIm.BADLANDS))))) return;
+      const special = dim === 0 && DL.biomeAnimals ? DL.biomeAnimals(biome) : null;
+      if (g !== ground && !(dim === 0 && (g === B.mycelium || g === B.podzol || (special && DL.biomeAnimalGround.includes(g)) || ((g === B.sand || g === B.red_sand || g === B.snow_layer || g === B.snow_block) && (biome === BIm.DESERT || S.SNOWY[biome] || biome === BIm.BADLANDS))))) return;
       if (world.getSky(x, y, z) < 12) return;
       if ((x - player.x) ** 2 + (z - player.z) ** 2 < 24 * 24) return;
       let types;
       if (dim === 3) types = ['moa', 'phyg', 'flying_cow', 'aerbunny', 'sheepuff', 'moa'];
+      else if (special) types = special;
       else if (biome === BIm.MUSHROOM_FIELDS) types = ['mooshroom'];
       else if (biome === BIm.DESERT || biome === BIm.BADLANDS) types = ['rabbit'];
       else if (biome === BIm.ICE_SPIKES || biome === BIm.FROZEN_OCEAN) types = ['polar_bear', 'rabbit'];
