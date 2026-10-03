@@ -58,7 +58,9 @@ function DL_SHARED_FACTORY() {
     'sift_stone', 'sift_stone_bricks', 'sift_turf_top', 'sift_turf_side', 'red_sculk', 'ichor', 'ichor_flow', 'carapace_sand',
     'carapace_wall', 'fossil_side', 'fossil_top', 'soul_block', 'tidebloom', 'singing_bell', 'sift_grass', 'lullaby_moss',
     'lullaby_moss_side', 'sift_log_side', 'sift_log_top', 'sift_leaves', 'sift_rift', 'sift_planks', 'echo_bulb', 'carapace_rock',
-    'drift_crystal', 'chiseled_sift_stone'
+    'drift_crystal', 'chiseled_sift_stone',
+    // villages and castles
+    'lantern', 'lantern_top', 'bell', 'bell_top', 'barrel_side', 'barrel_top', 'barrel_bottom', 'red_wool', 'blue_wool'
   ];
   const T = {};
   for (let i = 0; i < TILE_NAMES.length; i++) T[TILE_NAMES[i]] = i;
@@ -323,6 +325,15 @@ function DL_SHARED_FACTORY() {
   def(126, 'carapace_rock', PK({ tex: 'carapace_rock', hardness: 1.2 }));
   def(127, 'drift_crystal', PLANT({ tex: 'drift_crystal', emit: 9, flammable: false, sound: 'glass', hardness: 0.3 }));
   def(209, 'chiseled_sift_stone', PK({ tex: 'chiseled_sift_stone', hardness: 1.5, emit: 5 }));
+  // villages and castles
+  def(210, 'spruce_stairs', WOOD({ tex: 'spruce_planks', render: R.STAIRS }));
+  def(211, 'dark_stairs', WOOD({ tex: 'dark_planks', render: R.STAIRS }));
+  def(212, 'brick_stairs', PK({ tex: 'bricks', render: R.STAIRS, hardness: 2 }));
+  def(214, 'lantern', PK({ tex: { top: 'lantern_top', bottom: 'lantern_top', side: 'lantern' }, render: R.SHAPE, hardness: 3.5, emit: 15, cutout: true, sound: 'metal' }));
+  def(215, 'bell', PK({ tex: { top: 'bell_top', bottom: 'bell_top', side: 'bell' }, render: R.SHAPE, hardness: 5, sound: 'metal' }));
+  def(217, 'barrel', WOOD({ tex: { top: 'barrel_top', bottom: 'barrel_bottom', side: 'barrel_side' }, hardness: 2.5, flammable: true }));
+  def(218, 'red_wool', { tex: 'red_wool', hardness: 0.8, sound: 'cloth', flammable: true });
+  def(219, 'blue_wool', { tex: 'blue_wool', hardness: 0.8, sound: 'cloth', flammable: true });
   // non-cube "opaque" flags for clouds (def() forces opaque for cubes)
   OPAQUE[235] = OPAQUE[236] = 0; blocks[235].opaque = blocks[236].opaque = false;
   // Cubes you can see through must not hide their neighbours' faces (no X-ray).
@@ -359,6 +370,10 @@ function DL_SHARED_FACTORY() {
       case 177: return [[6, 0, 6, 10, 16, 10]];
       case 179: return (meta & 1) ? [[5, 9, 5, 11, 16, 11], [6, 4, 6, 10, 9, 10], [7, 0, 7, 9, 4, 9]] : [[5, 0, 5, 11, 7, 11], [6, 7, 6, 10, 12, 10], [7, 12, 7, 9, 16, 9]];
       case 193: return [[0, 0, 0, 16, 8, 16], [3, 8, 3, 5, 14, 5], [11, 8, 11, 13, 14, 13], [11, 8, 3, 13, 12, 5], [3, 8, 11, 5, 12, 13]];
+      // lantern: body, cap and handle; meta 1 hangs from the block above on a chain
+      case 214: return (meta & 1) ? [[5, 2, 5, 11, 9, 11], [6, 9, 6, 10, 11, 10], [7, 11, 7, 9, 16, 9]] : [[5, 0, 5, 11, 7, 11], [6, 7, 6, 10, 9, 10], [7, 9, 7, 9, 11, 9]];
+      // bell: lip, body and crown, hanging from the block above
+      case 215: return [[4, 2, 4, 12, 4, 12], [5, 4, 5, 11, 11, 11], [6, 11, 6, 10, 13, 10], [7, 13, 7, 9, 16, 9]];
     }
     return [[0, 0, 0, 16, 16, 16]];
   }

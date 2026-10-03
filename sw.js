@@ -5,7 +5,7 @@ const FILES = [
   './js/shared.js', './js/math.js', './js/textures.js', './js/font.js', './js/items.js', './js/storage.js',
   './js/world.js', './js/models.js', './js/entities.js', './js/renderer.js', './js/audio.js', './js/input.js',
   './js/gui.js', './js/game.js', './js/textures2.js', './js/textures3.js', './js/textures4.js', './js/items2.js', './js/structures.js', './js/models2.js',
-  './js/mobs2.js', './js/dims.js', './js/biomes.js', './js/net.js', './js/portalgun.js', './js/extras.js', './js/creative.js', './js/wishlist.js', './js/survival.js', './js/respack.js', './js/sift.js', './js/sift_mobs.js', './js/controller.js',
+  './js/mobs2.js', './js/dims.js', './js/biomes.js', './js/net.js', './js/portalgun.js', './js/extras.js', './js/creative.js', './js/wishlist.js', './js/survival.js', './js/respack.js', './js/sift.js', './js/sift_mobs.js', './js/villages.js', './js/controller.js',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'
 ];
 

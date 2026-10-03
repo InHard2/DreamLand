@@ -955,6 +955,7 @@
       if (cur && !S.REPLACE[cur]) return;
       let meta = 0;
       const f = this.facing();
+      if (S.RENDER[id] === S.R.STAIRS) meta = f;
       switch (id) {
         case B.torch: {
           if (t.face === 0) return;

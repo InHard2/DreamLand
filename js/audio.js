@@ -209,6 +209,9 @@
     });
   }
   const VARIANTS = { stone: 4, wood: 4, gravel: 4, grass: 4, sand: 4, cloth: 4, snow: 4, metal: 2, glass: 3, pig: 3, cow: 3, sheep: 3, chicken: 3, zombie: 3, cave: 4 };
+  // other modules add their own sounds: A.DESIGNS[name] = (variant) => samples, A.VARIANTS[name] = how many variants
+  A.DESIGNS = DESIGNS; A.VARIANTS = VARIANTS;
+  A.dsp = { Biquad, gen, env, noise, rnd, voice, SR };
 
   function getBuffer(name) {
     const variants = VARIANTS[name] || 1;
