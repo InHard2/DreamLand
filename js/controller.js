@@ -108,8 +108,9 @@
       this.resetBtn.enabled = !!(p && In.padMaps[p.id]);
       let y = top + 13;
       const line = (s, col) => { G.textC(s, W / 2, y, col || '#A0A0A0'); y += 10; };
-      if (!navigator.getGamepads) line('This browser has no controller support. Try Chrome, Edge or Firefox.', '#FF8080');
-      else if (In.padBlocked) {
+      if (window.isSecureContext === false) { line('Browsers only allow controllers on secure addresses.', '#FF8080'); line('On this PC open http://localhost:' + (location.port || '8080') + ' instead of ' + location.host + '.', '#FF8080'); }
+      else if (!navigator.getGamepads) line('This browser has no controller support. Try Chrome, Edge or Firefox.', '#FF8080');
+      else if (In.padBlocked && In.embedded) {
         line('The page this game is embedded in blocks controllers.', '#FF8080');
         line('Open DreamLand in its own tab (or the downloaded copy) to use one.', '#FF8080');
       } else if (!pads.length) {
@@ -118,6 +119,7 @@
         line('Browsers only reveal a controller after a button is pressed.');
         line('Still nothing? Plug it in with a cable, or close Steam / DS4Windows', '#808080');
         line('(they can take over the controller), then reload the page.', '#808080');
+        if (In.embedded) line('Playing inside another app? Open DreamLand in Edge or Chrome instead.', '#808080');
       } else {
         for (const q of pads.slice(0, 4)) {
           const act = p && q.index === p.index;

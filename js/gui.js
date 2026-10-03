@@ -323,8 +323,25 @@
       G.text('DreamLand Alpha v1.2.6', 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
       const c = 'Not affiliated with Mojang. A fan tribute.';
       G.text(c, G.W - F.width(c) - 2 - G.safe.r, G.H - 10 - G.safe.b, '#FFFFFF');
-      if (DL.Input.padBlocked && navigator.getGamepads) G.text('Controllers are blocked in this embedded page: use the downloaded copy to play with one', 2 + G.safe.l, G.H - 10 - G.safe.b, '#A0A0A0');
+      // controller status, always in view, with what to do about it
+      const ps = DL.Input.padStatus ? DL.Input.padStatus() : null;
+      if (ps && (ps.state !== 'waiting' || DL.Input.lastDevice !== 'touch')) {
+        const blink = ps.state === 'listed' && Math.floor(performance.now() / 500) % 2 === 0;
+        const y = G.H - 20 - G.safe.b, w = F.width(ps.text);
+        this.padLine = { x: 2 + G.safe.l, y: y - 1, w: w + 2, h: 10 };
+        const hover = mx >= this.padLine.x && my >= this.padLine.y && mx < this.padLine.x + this.padLine.w && my < this.padLine.y + this.padLine.h;
+        G.text(ps.text, 2 + G.safe.l, y, blink ? '#FFFFFF' : hover ? '#FFFFA0' : ps.color);
+      } else this.padLine = null;
       this.drawWidgets(mx, my);
+    }
+    mouseDown(x, y, button) {
+      const L = this.padLine;
+      if (L && button === 0 && x >= L.x && y >= L.y && x < L.x + L.w && y < L.y + L.h) {
+        const st = DL.Input.padStatus().state;
+        if (st === 'blocked') { try { window.open(location.href, '_blank', 'noopener'); } catch (e) { /* ignore */ } return; }
+        if (G.ControllerScreen) { this.game.setScreen(new G.ControllerScreen(this.game, this)); return; }
+      }
+      super.mouseDown(x, y, button);
     }
     key() { }
     back() { }
@@ -710,6 +727,7 @@
     padButton(b) { if (b === DL.Input.GPB.B) this.game.setScreen(null); }
   }
   G.ChatScreen = ChatScreen;
+  DL.Input.wantsCursor = () => !!G.screen;
   DL.Input.wantsText = () => !!(G.screen && (G.screen.activeField || G.screen instanceof ChatScreen));
 
   /* ------------------------------------------------------------ */
@@ -751,7 +769,7 @@
     }
     drawSlots(mx, my) {
       // while dragging a stack across slots, show where it will land
-      const d = this.drag, sp = d && d.slots.length > 1 ? this.spreadPlan(d) : null;
+      const d = this.drag, sp = d && (d.slots.length > 1 || (d.slots.length === 1 && d.slots[0] !== d.origin)) ? this.spreadPlan(d) : null;
       this._dragLeft = sp ? sp.left : undefined;
       for (const s of this.slots) {
         const sx = this.px + s.x, sy = this.py + s.y;
@@ -842,8 +860,8 @@
         return;
       }
       // holding a stack: press, sweep over slots, release to spread it (left: evenly, right: one each)
-      if (p.cursor && !shift && (button === 0 || button === 2) && this.canSpread(s, p.cursor)) {
-        this.drag = { button, slots: [s], stack: I().copy(p.cursor) };
+      if (p.cursor && !shift && (button === 0 || button === 2) && !s.output && !s.source && !s.trash) {
+        this.drag = { button, slots: this.canSpread(s, p.cursor) ? [s] : [], origin: s, stack: I().copy(p.cursor), lx: x, ly: y };
         return;
       }
       const before = s.get(), had = !!p.cursor;
@@ -853,14 +871,21 @@
     }
     mouseMove(x, y) {
       super.mouseMove(x, y);
-      const s = this.slotAt(x, y);
-      if (!s) return;
       const d = this.drag;
       if (d) {
-        // each slot needs at least one item: stop adding once the stack is spread that thin
-        if (!d.slots.includes(s) && d.slots.length < d.stack.count && this.canSpread(s, d.stack)) d.slots.push(s);
+        // a fast sweep jumps across slots between two mouse events: check the whole path
+        const lx = d.lx === undefined ? x : d.lx, ly = d.ly === undefined ? y : d.ly;
+        const n = Math.max(1, Math.ceil(Math.hypot(x - lx, y - ly) / 3));
+        for (let k = 1; k <= n; k++) {
+          const t = this.slotAt(lx + (x - lx) * k / n, ly + (y - ly) * k / n);
+          // each slot needs at least one item: stop adding once the stack is spread that thin
+          if (t && !d.slots.includes(t) && d.slots.length < d.stack.count && this.canSpread(t, d.stack)) d.slots.push(t);
+        }
+        d.lx = x; d.ly = y;
         return;
       }
+      const s = this.slotAt(x, y);
+      if (!s) return;
       // shift + drag over items moves each of them across
       const In = DL.Input;
       if (this.shiftDrag && In.mouse.left && (In.keys.has('ShiftLeft') || In.keys.has('ShiftRight')) && !this.shiftDrag.has(s) && s.get() && !s.output) {
@@ -876,9 +901,10 @@
       this.drag = null; this._dragLeft = undefined;
       const p = this.player;
       if (!p.cursor || p.cursor.id !== d.stack.id) return;
-      if (d.slots.length === 1) {
-        const s = d.slots[0], had = !!p.cursor;
-        this.clickSlot(s, d.button, false);
+      // released where it started (or only one slot touched): an ordinary click
+      if (d.slots.length === 0 || (d.slots.length === 1 && d.slots[0] === d.origin)) {
+        const s = d.origin, had = !!p.cursor;
+        if (s && this.slots.includes(s)) this.clickSlot(s, d.button, false);
         this._lastClick = { slot: s, t: performance.now(), picked: !had && !!p.cursor };
         return;
       }
@@ -969,8 +995,8 @@
         const s0 = this.slotAt(td.x, td.y), s1 = this.slotAt(x, y);
         if (!s0 || !s1 || s1 === s0) return false;
         td.spreadTried = true;
-        if (!this.canSpread(s0, p.cursor)) return false;
-        this.drag = { button: 0, slots: [s0], stack: I().copy(p.cursor) };
+        if (s0.output || s0.source || s0.trash) return false;
+        this.drag = { button: 0, slots: this.canSpread(s0, p.cursor) ? [s0] : [], origin: s0, stack: I().copy(p.cursor), lx: td.x, ly: td.y };
         td.spread = true;
       }
       this.mouseMove(x, y);

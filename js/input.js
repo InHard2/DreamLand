@@ -87,6 +87,8 @@
     });
     window.addEventListener('blur', () => { In.keys.clear(); In.mouse.left = In.mouse.right = false; emit('blur'); });
 
+    // the focused frame is the one browsers send controller input to
+    window.addEventListener('pointerdown', () => { try { window.focus(); } catch (e) { /* ignore */ } }, true);
     const pos = (e) => [e.clientX, e.clientY];
     uiCanvas.addEventListener('mousedown', (e) => {
       if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
@@ -121,6 +123,8 @@
     document.addEventListener('pointerlockchange', () => {
       const was = In.locked;
       In.locked = document.pointerLockElement === uiCanvas;
+      // a lock that lands after a menu opened would trap the menu's cursor: give it straight back
+      if (In.locked && In.wantsCursor && In.wantsCursor()) { try { document.exitPointerLock(); } catch (e) { /* ignore */ } }
       if (was && !In.locked) emit('unlock');
     });
     document.addEventListener('pointerlockerror', () => { In.locked = false; });
@@ -268,6 +272,19 @@
     try { return Array.from(navigator.getGamepads() || []); } catch (e) { In.padBlocked = true; return []; }
   }
   In.readPads = readPads;
+  /** Why a controller does or does not work here, in words a player can act on. */
+  In.padStatus = function () {
+    const host = location.hostname || '';
+    if (window.isSecureContext === false) return { state: 'insecure', text: 'Controllers need a secure address: open http://localhost:' + (location.port || '8080') + ' on this PC', color: '#FF9090' };
+    if (!navigator.getGamepads) return { state: 'unsupported', text: 'This browser has no controller support: use Edge, Chrome or Firefox', color: '#FF9090' };
+    if (In.padBlocked && In.embedded) return { state: 'blocked', text: 'This window blocks controllers: click here to open DreamLand in its own tab', color: '#FFB060' };
+    const pads = readPads().filter(q => q && q.connected !== false);
+    const live = In.gp.connected && pads.find(q => q.index === In.gp.index);
+    if (live) { const s = seen.get(live.index); const name = live.id.replace(/\s*\(.*$/, '').slice(0, 40) || 'Controller'; return s && s.used ? { state: 'ready', text: 'Controller ready: ' + name, color: '#80FF80' } : { state: 'listed', text: name + ' found: press A', color: '#E0E060' }; }
+    void host;
+    return { state: 'waiting', text: 'Controller: click the game once, then press A (Options > Controller Test)', color: '#C0C0C0' };
+  };
+  In.embedded = (function () { try { return window.top !== window; } catch (e) { return true; } })();
   // Every pad we have seen: resting axes (so stuck axes on phantom devices never count as input) and when it was last used.
   const seen = new Map();
   const XBOXY = /xbox|xinput|045e|microsoft|standard gamepad/i;

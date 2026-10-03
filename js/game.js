@@ -659,20 +659,17 @@
     }
 
     frameInput(dt) {
+      const scr = G.screen;
+      // gamepad cursor / nav in screens (the title screen and menus too)
+      const ax = In.gp.axes;
+      if (scr && In.lastDevice === 'gamepad') {
+        if (scr instanceof G.ContainerScreen) { if (this.player) scr.padCursor(ax[0], ax[1], dt); }
+        else if (scr.stickNav) scr.stickNav(ax[0], ax[1]);
+      }
       if (!this.inGame || !this.player) return;
       const p = this.player;
       const st = this.settings;
-      const scr = G.screen;
-      // gamepad cursor / nav in screens
-      const ax = In.gp.axes;
-      if (scr) {
-        if (In.lastDevice === 'gamepad') {
-          if (scr instanceof G.ContainerScreen) scr.padCursor(ax[0], ax[1], dt);
-          else if (scr.stickNav) scr.stickNav(ax[0], ax[1]);
-        }
-        this.moveF = this.moveS = 0;
-        return;
-      }
+      if (scr) { this.moveF = this.moveS = 0; return; }
       if (p.health <= 0) return;
       // look
       const f = st.sensitivity * 0.6 + 0.2;
