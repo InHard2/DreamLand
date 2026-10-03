@@ -347,7 +347,7 @@
   /* ------------------------------------------------------------ */
   const PL = E.Player.prototype;
   function seatPos(p) {
-    if (p.vehicle) { const m = p.vehicle; return [m.x + Math.sin(m.yaw) * 0.1, m.y + 0.66, m.z + Math.cos(m.yaw) * 0.1]; }
+    if (p.vehicle) { const m = p.vehicle, sy = m.def && m.def.seatY !== undefined ? m.def.seatY : 0.66; return [m.x + Math.sin(m.yaw) * 0.1, m.y + sy, m.z + Math.cos(m.yaw) * 0.1]; }
     if (p.sitting) { const s = p.sitting; return [s.x + 0.5, s.y - 0.22, s.z + 0.5]; }
     return null;
   }

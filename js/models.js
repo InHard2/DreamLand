@@ -126,7 +126,9 @@
   function layout(mdl) {
     if (mdl.layout) return mdl.layout;
     const items = [];
-    for (const pn in mdl.parts) mdl.parts[pn].boxes.forEach((b, i) => items.push({ pn, i, w: 2 * (b[5] + b[3]), h: b[5] + b[4] }));
+    // texture space is whole pixels: odd-sized boxes get rounded up
+    const C = Math.ceil;
+    for (const pn in mdl.parts) mdl.parts[pn].boxes.forEach((b, i) => items.push({ pn, i, w: 2 * (C(b[5]) + C(b[3])), h: C(b[5]) + C(b[4]) }));
     let W = 64;
     const maxW = Math.max(...items.map(it => it.w));
     while (W < maxW) W *= 2;
@@ -149,7 +151,7 @@
   // rects: [u, v, w, h] per face index. Orientation as seen from outside:
   // front/back/sides: x right, y down; top: front edge at row 0; bottom: back edge at row 0.
   function faceRects(b, u, v) {
-    const w = b[3], h = b[4], d = b[5];
+    const w = Math.ceil(b[3]), h = Math.ceil(b[4]), d = Math.ceil(b[5]);
     return [
       [u + d + w, v, w, d],
       [u + d, v, w, d],
@@ -176,6 +178,7 @@
     this.r = new S.RNG(seed || 1);
   }
   Skin.prototype.px = function (x, y, c) {
+    x = Math.floor(x); y = Math.floor(y);
     if (!c || x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     const o = (y * this.w + x) * 4;
     this.img.data[o] = c[0]; this.img.data[o + 1] = c[1]; this.img.data[o + 2] = c[2]; this.img.data[o + 3] = c[3] === undefined ? 255 : c[3];

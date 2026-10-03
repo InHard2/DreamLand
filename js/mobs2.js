@@ -78,6 +78,8 @@
     return false;
   }
   E.teleportRandom = teleportRandom;
+  // movement and targeting helpers for other modules
+  E.AI = { steer, flyWander, lookAt, acquire, airAt, get flyingAI() { return flyingAI; } };
   function drop(m, id, n) { if (n > 0) m.world.spawnItem(m.x, m.y + 0.5, m.z, I().stack(id, n), true); }
   const hostileNear = (m, r) => {
     let best = null, bd = r;
