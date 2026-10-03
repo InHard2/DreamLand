@@ -900,8 +900,9 @@
             const m = w.getMeta(t.x, t.y, t.z);
             const by = (m & 8) ? t.y - 1 : t.y;
             const bm = w.getMeta(t.x, by, t.z) ^ 4;
-            w.setBlock(t.x, by, t.z, B.wooden_door, bm & 7, 2);
-            if (w.getBlock(t.x, by + 1, t.z) === B.wooden_door) w.setBlock(t.x, by + 1, t.z, B.wooden_door, (bm & 7) | 8, 2);
+            const wood = bm & 0xF0; // which wood the door is made of
+            w.setBlock(t.x, by, t.z, B.wooden_door, (bm & 7) | wood, 2);
+            if (w.getBlock(t.x, by + 1, t.z) === B.wooden_door) w.setBlock(t.x, by + 1, t.z, B.wooden_door, (bm & 7) | 8 | wood, 2);
             A.play('door', t.x + 0.5, t.y + 0.5, t.z + 0.5, 1, Math.random() * 0.1 + 0.9);
             p.swing();
             return;

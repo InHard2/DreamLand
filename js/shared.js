@@ -66,6 +66,10 @@ function DL_SHARED_FACTORY() {
     'crystal_stone', 'crystal_grass_top', 'crystal_grass_side', 'crystal_planks', 'crystal_log_side', 'crystal_log_top', 'crystal_leaves', 'crystal_flower',
     'pink_tourmaline_ore', 'tigers_eye_ore', 'pink_tourmaline_block', 'tigers_eye_block', 'apple_leaves', 'experience_leaves', 'scary_leaves',
     'ant_hill_top', 'ant_hill_side', 'crystal_torch', 'mobzilla_scale_block',
+    // doors of every wood
+    'door_top_spruce', 'door_bottom_spruce', 'door_top_birch', 'door_bottom_birch', 'door_top_jungle', 'door_bottom_jungle', 'door_top_acacia', 'door_bottom_acacia',
+    'door_top_dark', 'door_bottom_dark', 'door_top_mangrove', 'door_bottom_mangrove', 'door_top_cherry', 'door_bottom_cherry', 'door_top_pale_oak', 'door_bottom_pale_oak',
+    'door_top_skyroot', 'door_bottom_skyroot', 'door_top_crystal', 'door_bottom_crystal', 'door_top_sift', 'door_bottom_sift',
     'strawberry_0', 'strawberry_1', 'strawberry_2', 'strawberry_3', 'tomato_0', 'tomato_1', 'tomato_2', 'tomato_3', 'corn_0', 'corn_1', 'corn_2', 'corn_3', 'lettuce_0', 'lettuce_1', 'lettuce_2', 'lettuce_3', 'radish_0', 'radish_1', 'radish_2', 'radish_3', 'rice_0', 'rice_1', 'rice_2', 'rice_3', 'quinoa_0', 'quinoa_1', 'quinoa_2', 'quinoa_3'
   ];
   const T = {};
@@ -393,8 +397,54 @@ function DL_SHARED_FACTORY() {
   S.LEAVES = LEAVES;
 
   /** Box lists (1/16 units) for SHAPE blocks. */
+  // wooden slabs (any wood) and beds
+  def(117, 'wood_slab', WOOD({ tex: 'planks', render: R.SLAB }));
+  def(9, 'bed', { tex: 'wool', render: R.SHAPE, hardness: 0.2, sound: 'cloth', flammable: true, drop: 0, cutout: true });
+
+  /*
+   * One block, many materials: stairs, slabs, fences and doors keep which wood or stone
+   * they are made of in the high four bits of their metadata (meta >> 4), so every wood
+   * and stone gets its own without spending block ids.
+   */
+  const WOOD_KINDS = ['planks', 'spruce_planks', 'birch_planks', 'jungle_planks', 'acacia_planks', 'dark_planks', 'mangrove_planks', 'cherry_planks', 'pale_oak_planks', 'skyroot_planks', 'crystal_planks', 'sift_planks'];
+  const WOOD_KEYS = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark', 'mangrove', 'cherry', 'pale_oak', 'skyroot', 'crystal', 'sift'];
+  const STAIR_STONES = ['cobblestone', 'stone', 'mossy_cobblestone', 'mossy_stone_bricks', 'deepslate', 'blackstone', 'polished_blackstone_bricks', 'end_stone_bricks', 'prismarine', 'prismarine_bricks', 'dark_prismarine', 'holystone', 'holystone_bricks', 'sift_stone_bricks', 'calcite', 'cracked_stone_bricks'];
+  const SLAB_STONES = ['slab', 'cobblestone', 'stone_bricks', 'sandstone', 'bricks', 'mossy_cobblestone', 'deepslate', 'blackstone', 'polished_blackstone_bricks', 'nether_bricks', 'end_stone_bricks', 'prismarine', 'prismarine_bricks', 'dark_prismarine', 'purpur_block', 'sift_stone_bricks'];
+  const VARIANTS = {};
+  const VAR_SRC = [];
+  function variants(id, names) {
+    const src = new Uint8Array(16);
+    names.forEach((n, i) => { src[i] = B[n] || 0; });
+    VAR_SRC[id] = src;
+    VARIANTS[id] = names;
+  }
+  variants(B.wood_stairs, WOOD_KINDS); variants(B.wood_slab, WOOD_KINDS); variants(B.fence, WOOD_KINDS); variants(B.wooden_door, WOOD_KINDS);
+  variants(B.cobble_stairs, STAIR_STONES); variants(B.slab, SLAB_STONES);
+  const DOOR_TILES = WOOD_KEYS.map((k, i) => (i === 0 ? [T.door_top, T.door_bottom] : [T['door_top_' + k], T['door_bottom_' + k]]));
+  S.WOOD_KINDS = WOOD_KINDS; S.WOOD_KEYS = WOOD_KEYS; S.STAIR_STONES = STAIR_STONES; S.SLAB_STONES = SLAB_STONES;
+  S.VARIANTS = VARIANTS; S.VAR_SRC = VAR_SRC;
+  /** The block a variant is made of (the planks or stone it looks like), or 0. */
+  S.variantSource = (id, meta) => { const v = VAR_SRC[id]; return v ? v[(meta >> 4) & 15] : 0; };
+
+  /* beds: meta 0-3 = direction from foot to head (north, south, west, east), 8 = head half, colour in bits 4-5 */
+  S.BED_COLOURS = ['red_wool', 'wool', 'blue_wool'];
+  function bedBoxes(meta) {
+    const head = meta & 8, wool = T[S.BED_COLOURS[(meta >> 4) & 3] || 'red_wool'], wood = T.planks, pillow = T.wool;
+    // laid out with the head towards north (-z); this half's outer end is z=0 for the head, z=16 for the foot
+    const bx = [[0, 3, 0, 16, 4, 16, wood], [0, 4, 0, 16, 9, 16, wool]];
+    if (head) bx.push([2, 9, 1, 14, 11, 7, pillow], [0, 0, 0, 3, 3, 3, wood], [13, 0, 0, 16, 3, 3, wood], [0, 3, 0, 16, 12, 1, wood]);
+    else bx.push([0, 0, 13, 3, 3, 16, wood], [13, 0, 13, 16, 3, 16, wood], [1, 9, 1, 15, 10, 15, wool]);
+    const f = meta & 3;
+    if (f === 0) return bx;
+    return bx.map(([x0, y0, z0, x1, y1, z1, t]) => {
+      const pts = [[x0, z0], [x1, z1]].map(([x, z]) => (f === 1 ? [16 - x, 16 - z] : f === 2 ? [z, 16 - x] : [16 - z, x]));
+      return [Math.min(pts[0][0], pts[1][0]), y0, Math.min(pts[0][1], pts[1][1]), Math.max(pts[0][0], pts[1][0]), y1, Math.max(pts[0][1], pts[1][1]), t];
+    });
+  }
+
   function shapeBoxes(id, meta) {
     switch (id) {
+      case 9: return bedBoxes(meta);
       case 66: return [[0, 0, 0, 16, 1, 16]];
       case 101: return [[7, 0, 0, 9, 16, 16], [0, 0, 7, 16, 16, 9]];
       case 208: return [[0, 0, 0, 16, 15, 16]];
@@ -444,6 +494,12 @@ function DL_SHARED_FACTORY() {
     if (id === B.farmland && face === 1) return meta > 0 ? T.farmland_wet : T.farmland_dry;
     if (id === B.end_portal_frame && face === 1 && (meta & 4)) return T.end_frame_eye;
     if (id === B.nether_wart) return T.nether_wart_0 + [0, 1, 1, 2][Math.min(3, meta & 3)];
+    const vs = VAR_SRC[id];
+    if (vs !== undefined && meta >= 16) {
+      const v = (meta >> 4) & 15;
+      if (id === B.wooden_door) { const dt = DOOR_TILES[v]; if (dt) return (meta & 8) ? dt[0] : dt[1]; }
+      else if (vs[v]) return TEX[vs[v] * 6 + face];
+    }
     if (id === B.wooden_door) return (meta & 8) ? T.door_top : T.door_bottom;
     return TEX[id * 6 + face];
   }
@@ -1259,7 +1315,7 @@ function DL_SHARED_FACTORY() {
             case R.DOOR: this.door(i, id, x, y, z); break;
             case R.CROPS: this.crops(i, id, x, y, z); break;
             case R.FIRE: this.fire(i, id, x, y, z); break;
-            case R.SHAPE: { const bx = shapeBoxes(id, this.me[i]); for (const b of bx) this.box(i, id, x, y, z, b[0], b[1], b[2], b[3], b[4], b[5]); break; }
+            case R.SHAPE: { const bx = shapeBoxes(id, this.me[i]); for (const b of bx) this.box(i, id, x, y, z, b[0], b[1], b[2], b[3], b[4], b[5], b[6]); break; }
             case R.PORTAL: if (this.me[i] & 1) this.box(i, id, x, y, z, 6, 0, 0, 10, 16, 16); else this.box(i, id, x, y, z, 0, 0, 6, 16, 16, 10); break;
           }
         }
@@ -1521,8 +1577,7 @@ function DL_SHARED_FACTORY() {
   Mesher.prototype.door = function (i, id, x, y, z) {
     const meta = this.me[i];
     const b = doorBox(meta);
-    const t = (meta & 8) ? T.door_top : T.door_bottom;
-    this.box(i, id, x, y, z, b[0], 0, b[1], b[2], 16, b[3], t);
+    this.box(i, id, x, y, z, b[0], 0, b[1], b[2], 16, b[3], tileFor(id, 2, meta, 0));
   };
 
   function fluidPercent(meta) { if (meta >= 8) meta = 0; return (meta + 1) / 9; }

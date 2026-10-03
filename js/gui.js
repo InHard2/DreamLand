@@ -120,7 +120,7 @@
     if (!d) return;
     const ctx = G.ctx;
     if (d.isBlock && !d.flat) {
-      const icon = G.blockIcon(d.block);
+      const icon = G.blockIcon(d.block, d.blockMeta);
       if (icon) ctx.drawImage(icon, x, y, 16, 16);
     } else {
       const src = d.isBlock ? DL.Tex.terrain : DL.Tex.items;
@@ -140,12 +140,12 @@
       G.text(s, x + 17 - F.width(s), y + 9, '#FFFFFF');
     }
   };
-  G.blockIcon = function (id) {
-    const key = id + ':' + G.scale;
+  G.blockIcon = function (id, meta) {
+    const key = id + ':' + (meta || 0) + ':' + G.scale;
     let c = G.iconCache.get(key);
     if (c) return c;
     if (!DL.game || !DL.game.renderer) return null;
-    c = DL.game.renderer.renderBlockIcon(id, 16 * G.scale);
+    c = DL.game.renderer.renderBlockIcon(id, 16 * G.scale, meta || 0);
     G.iconCache.set(key, c);
     return c;
   };

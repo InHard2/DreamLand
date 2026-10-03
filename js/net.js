@@ -481,7 +481,7 @@
           return;
         }
         case 'set': {
-          if (!isVec(m.p, 3, 3e7) || !m.p.every(Number.isInteger) || !isInt(m.id, 0, 255) || !isInt(m.m, 0, 15)) return;
+          if (!isVec(m.p, 3, 3e7) || !m.p.every(Number.isInteger) || !isInt(m.id, 0, 255) || !isInt(m.m, 0, 255)) return;
           const [x, y, z] = m.p;
           if (y < 1 || y >= S.CH || !this.near(x + 0.5, y + 0.5, z + 0.5, 10) || !w.isReady(x, z)) return this.correct(x, y, z);
           if (m.id && (!S.blocks[m.id] || DENY_PLACE.has(m.id))) return this.correct(x, y, z);
@@ -937,7 +937,7 @@
           for (const b of m.b) {
             if (!Array.isArray(b) || b.length !== 5 || !b.every(Number.isInteger)) continue;
             const [x, y, z, id, meta] = b;
-            if (y < 0 || y >= S.CH || id < 0 || id > 255 || (id && !S.blocks[id]) || meta < 0 || meta > 15) continue;
+            if (y < 0 || y >= S.CH || id < 0 || id > 255 || (id && !S.blocks[id]) || meta < 0 || meta > 255) continue;
             w.setBlock(x, y, z, id, meta, 0);
           }
           w._netApply = false;
@@ -1546,7 +1546,7 @@
   const setBlock = W.setBlock;
   W.setBlock = function (x, y, z, id, meta, flags) {
     if (this.remote && !this._netApply && !this._localEdit && N.client) {
-      N.client.send({ t: 'set', p: [x, y, z], id: id | 0, m: (meta || 0) & 15 });
+      N.client.send({ t: 'set', p: [x, y, z], id: id | 0, m: (meta || 0) & 255 });
       this._localEdit = true;
       const r = setBlock.call(this, x, y, z, id, meta, (flags === undefined ? 1 : flags) & 2);
       this._localEdit = false;

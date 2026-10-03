@@ -1021,7 +1021,7 @@ void main(){
         M4.rotateY(m, m, spin);
         M4.scale(m, m, 0.25, 0.25, 0.25);
         M4.translate(m, m, -0.5, 0, -0.5);
-        this.drawBlockMesh(d.block, 0, m, light);
+        this.drawBlockMesh(d.block, d.blockMeta || 0, m, light);
       }
     } else {
       for (let i = 0; i < copies; i++) {
@@ -1056,7 +1056,7 @@ void main(){
     if (d.isBlock && !d.flat) {
       M4.rotateY(m, m, Math.PI / 2);
       M4.translate(m, m, -0.5, -0.5, -0.5);
-      this.drawBlockMesh(d.block, S.FRONT_BLOCKS[d.block] ? 3 : 0, m, light);
+      this.drawBlockMesh(d.block, (d.blockMeta || 0) | (S.FRONT_BLOCKS[d.block] ? 3 : 0), m, light);
     } else {
       M4.translate(m, m, 0, -0.3, 0);
       M4.scale(m, m, 1.5, 1.5, 1.5);
@@ -1109,7 +1109,7 @@ void main(){
     M4.rotateX(m, m, rot[0] * deg); M4.rotateY(m, m, side * rot[1] * deg); M4.rotateZ(m, m, side * rot[2] * deg);
     M4.scale(m, m, sc, sc, sc);
     M4.translate(m, m, -0.5, -0.5, -0.5);
-    if (d.isBlock && !d.flat) this.drawBlockMesh(d.block, S.FRONT_BLOCKS[d.block] ? 2 : 0, m, light);
+    if (d.isBlock && !d.flat) this.drawBlockMesh(d.block, (d.blockMeta || 0) | (S.FRONT_BLOCKS[d.block] ? 2 : 0), m, light);
     else { M4.translate(m, m, 0, 0, 8.5 / 16); this.drawItemMesh(stack, m, light); }
   };
 
@@ -1513,7 +1513,7 @@ void main(){
   };
 
   /* Inventory block icons rendered in 3D (offscreen framebuffer) */
-  Renderer.prototype.renderBlockIcon = function (id, size) {
+  Renderer.prototype.renderBlockIcon = function (id, size, meta) {
     const gl = this.gl;
     if (!this.iconFB || this.iconSize !== size) {
       if (this.iconFB) { gl.deleteFramebuffer(this.iconFB); gl.deleteTexture(this.iconTex); gl.deleteRenderbuffer(this.iconDepth); }
@@ -1548,7 +1548,7 @@ void main(){
     const R = S.RENDER[id];
     const yOff = R === S.R.SLAB || R === S.R.SNOW || R === S.R.FARMLAND ? -0.5 : -0.5;
     M4.translate(m, m, -0.5, yOff, -0.5);
-    this.drawBlockMesh(id, id === B.chest || id === B.furnace || id === B.pumpkin || id === B.jack_o_lantern ? 1 : (S.RENDER[id] === S.R.STAIRS ? 0 : 0), m, [15, 15]);
+    this.drawBlockMesh(id, (meta || 0) | (id === B.chest || id === B.furnace || id === B.pumpkin || id === B.jack_o_lantern ? 1 : 0), m, [15, 15]);
     const px = new Uint8Array(size * size * 4);
     gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, px);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
