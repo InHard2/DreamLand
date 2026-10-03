@@ -596,6 +596,8 @@
       }
       for (const k of ['head', 'rarm', 'larm']) s.fill(k, 0, 'all', () => null);
     }
+    // a material can repaint its armour in its own style (scales, gems, feathers...)
+    if (M.armorStyles && M.armorStyles[mat]) { try { M.armorStyles[mat](s, layer, ARMOR_MAT[mat]); } catch (e) { console.warn('armour style', mat, e); } }
     return s.done();
   }
 
