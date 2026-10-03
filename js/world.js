@@ -1383,6 +1383,7 @@
       if (!ok) w.setBlockRaw(x, y, z, B.sapling, m);
     }
   };
+  DL.RTICK = RTICK;
   RTICK[B.wheat] = (w, x, y, z, r) => {
     if (w.getLightLevel(x, y + 1, z) < 9) return;
     const m = w.getMeta(x, y, z);

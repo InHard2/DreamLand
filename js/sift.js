@@ -190,10 +190,10 @@
   I._def(CROWN, 'monarch_crown', { display: "The Monarch's Crown", maxStack: 1, armor: { slot: 0, points: 4, mat: 'gold' }, maxDamage: 600, tab: 'combat' });
   Tex.ITEM_ART.monarch_crown = [['................', '................', '................', '..a....a....a...', '..ab..aba..ab...', '..abbabcbabb....', '..abbbbbbbbb....',
     '..accbcccbccb...', '..abbbbbbbbb....', '...aaaaaaaaa....'].map(r => r.padEnd(16, '.')), { a: hex('#5a1020'), b: hex('#c02848'), c: hex('#5ff0e0') }, 2];
-  I._def(SOUL_ORB, 'soul_orb', { display: 'Soul Orb', tab: 'hidden' });
+  I._def(SOUL_ORB, 'soul_orb', { display: 'Soul Orb', hidden: true });
   Tex.ITEM_ART.soul_orb = [['................', '................', '................', '......aaaa......', '.....abccba.....', '....abcddcba....', '....acddddca....', '....acddddca....', '....abcddcba....',
     '.....abccba.....', '......aaaa......'], { a: hex('#106860'), b: hex('#20b0a0'), c: hex('#70f0e0'), d: hex('#e8fffc') }, 2];
-  I._def(SEED, 'sentinel_seed', { display: 'Sentinel Seed', tab: 'hidden' });
+  I._def(SEED, 'sentinel_seed', { display: 'Sentinel Seed', hidden: true });
   Tex.ITEM_ART.sentinel_seed = [['................', '................', '................', '................', '......aa........', '.....abba.......', '....abccba......', '....abccba......',
     '.....abba.......', '......aa........'], { a: hex('#601838'), b: hex('#d04080'), c: hex('#ffb0d8') }, 3];
   // the existing armour code needs these

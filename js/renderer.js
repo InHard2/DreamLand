@@ -849,8 +849,9 @@ void main(){
     const slots = [[0, 'armor1', ['head']], [1, 'armor1', ['body', 'rarm', 'larm']], [2, 'armor2', ['body', 'rleg', 'lleg']], [3, 'armor1', ['rleg', 'lleg']]];
     for (const [i, model, parts] of slots) {
       const s = p.armor[i];
-      const mat = s && armorMat(s.id);
-      if (!mat) continue;
+      const d = s && DL.Items.get(s.id);
+      const mat = s && ((d && d.armor && d.armor.mat) || armorMat(s.id));
+      if (!mat || !this.skinTex[model + '_' + mat]) continue;
       this.drawModel(model, p, pt, m, light, { skin: model + '_' + mat, only: parts, pose });
     }
   };

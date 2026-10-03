@@ -60,7 +60,13 @@ function DL_SHARED_FACTORY() {
     'lullaby_moss_side', 'sift_log_side', 'sift_log_top', 'sift_leaves', 'sift_rift', 'sift_planks', 'echo_bulb', 'carapace_rock',
     'drift_crystal', 'chiseled_sift_stone',
     // villages and castles
-    'lantern', 'lantern_top', 'bell', 'bell_top', 'barrel_side', 'barrel_top', 'barrel_bottom', 'red_wool', 'blue_wool'
+    'lantern', 'lantern_top', 'bell', 'bell_top', 'barrel_side', 'barrel_top', 'barrel_bottom', 'red_wool', 'blue_wool',
+    // OreSpawn
+    'ruby_ore', 'amethyst_ore', 'uranium_ore', 'titanium_ore', 'salt_ore', 'ruby_block', 'amethyst_block', 'uranium_block', 'titanium_block',
+    'crystal_stone', 'crystal_grass_top', 'crystal_grass_side', 'crystal_planks', 'crystal_log_side', 'crystal_log_top', 'crystal_leaves', 'crystal_flower',
+    'pink_tourmaline_ore', 'tigers_eye_ore', 'pink_tourmaline_block', 'tigers_eye_block', 'apple_leaves', 'experience_leaves', 'scary_leaves',
+    'ant_hill_top', 'ant_hill_side', 'crystal_torch', 'mobzilla_scale_block',
+    'strawberry_0', 'strawberry_1', 'strawberry_2', 'strawberry_3', 'tomato_0', 'tomato_1', 'tomato_2', 'tomato_3', 'corn_0', 'corn_1', 'corn_2', 'corn_3', 'lettuce_0', 'lettuce_1', 'lettuce_2', 'lettuce_3', 'radish_0', 'radish_1', 'radish_2', 'radish_3', 'rice_0', 'rice_1', 'rice_2', 'rice_3', 'quinoa_0', 'quinoa_1', 'quinoa_2', 'quinoa_3'
   ];
   const T = {};
   for (let i = 0; i < TILE_NAMES.length; i++) T[TILE_NAMES[i]] = i;
@@ -334,6 +340,38 @@ function DL_SHARED_FACTORY() {
   def(217, 'barrel', WOOD({ tex: { top: 'barrel_top', bottom: 'barrel_bottom', side: 'barrel_side' }, hardness: 2.5, flammable: true }));
   def(218, 'red_wool', { tex: 'red_wool', hardness: 0.8, sound: 'cloth', flammable: true });
   def(219, 'blue_wool', { tex: 'blue_wool', hardness: 0.8, sound: 'cloth', flammable: true });
+  // OreSpawn: ores, gem blocks, the Crystal dimension, crops, fruit trees and ant hills
+  def(21, 'ruby_ore', PK({ tex: 'ruby_ore', hardness: 3, tier: 2 }));
+  def(22, 'amethyst_ore', PK({ tex: 'amethyst_ore', hardness: 3, tier: 2 }));
+  def(23, 'uranium_ore', PK({ tex: 'uranium_ore', hardness: 3, tier: 2, emit: 4 }));
+  def(25, 'titanium_ore', PK({ tex: 'titanium_ore', hardness: 3, tier: 2 }));
+  def(26, 'salt_ore', PK({ tex: 'salt_ore', hardness: 2, tier: 0 }));
+  def(27, 'ruby_block', PK({ tex: 'ruby_block', hardness: 5, sound: 'metal' }));
+  def(28, 'amethyst_block', PK({ tex: 'amethyst_block', hardness: 5, sound: 'glass' }));
+  def(29, 'uranium_block', PK({ tex: 'uranium_block', hardness: 5, sound: 'metal', emit: 8 }));
+  def(31, 'titanium_block', PK({ tex: 'titanium_block', hardness: 6, sound: 'metal' }));
+  def(32, 'crystal_stone', PK({ tex: 'crystal_stone', hardness: 1.5, sound: 'glass' }));
+  def(33, 'crystal_grass', { tex: { top: 'crystal_grass_top', bottom: 'crystal_stone', side: 'crystal_grass_side' }, hardness: 0.6, tool: 'shovel', sound: 'grass', drop: 32 });
+  def(34, 'crystal_planks', WOOD({ tex: 'crystal_planks', flammable: false }));
+  def(36, 'crystal_log', WOOD({ tex: { top: 'crystal_log_top', bottom: 'crystal_log_top', side: 'crystal_log_side' }, flammable: false }));
+  def(55, 'crystal_leaves', LEAF({ tex: 'crystal_leaves', emit: 5, flammable: false }));
+  def(63, 'crystal_flower', PLANT({ tex: 'crystal_flower', emit: 7, flammable: false, sound: 'glass' }));
+  def(68, 'pink_tourmaline_ore', PK({ tex: 'pink_tourmaline_ore', hardness: 3, tier: 1, sound: 'glass' }));
+  def(69, 'tigers_eye_ore', PK({ tex: 'tigers_eye_ore', hardness: 3, tier: 1, sound: 'glass' }));
+  def(70, 'pink_tourmaline_block', PK({ tex: 'pink_tourmaline_block', hardness: 5, sound: 'glass' }));
+  def(71, 'tigers_eye_block', PK({ tex: 'tigers_eye_block', hardness: 5, sound: 'glass' }));
+  const CROP = (o) => Object.assign({ render: R.CROPS, solid: false, hardness: 0, sound: 'grass', cutout: true, flammable: true, replaceable: false }, o);
+  [[72, 'strawberry'], [74, 'tomato'], [75, 'corn'], [76, 'lettuce'], [77, 'radish'], [84, 'rice'], [94, 'quinoa']].forEach(([id, n]) => def(id, n + '_crop', CROP({ tex: n + '_0', drop: 0 })));
+  def(96, 'apple_leaves', LEAF({ tex: 'apple_leaves' }));
+  def(100, 'experience_leaves', LEAF({ tex: 'experience_leaves', emit: 4 }));
+  def(108, 'ant_hill', { tex: { top: 'ant_hill_top', bottom: 'dirt', side: 'ant_hill_side' }, hardness: 0.6, tool: 'shovel', sound: 'gravel', drop: 3 });
+  def(110, 'scary_leaves', LEAF({ tex: 'scary_leaves' }));
+  def(111, 'crystal_torch', PLANT({ tex: 'crystal_torch', emit: 15, flammable: false, sound: 'glass', hardness: 0.2 }));
+  def(116, 'mobzilla_scale_block', PK({ tex: 'mobzilla_scale_block', hardness: 50, sound: 'stone' }));
+  // crops show one of four growth stages
+  const STAGES = new Int16Array(256).fill(-1);
+  for (const n of ['strawberry', 'tomato', 'corn', 'lettuce', 'radish', 'rice', 'quinoa']) STAGES[B[n + '_crop']] = T[n + '_0'];
+  S.STAGES = STAGES;
   // non-cube "opaque" flags for clouds (def() forces opaque for cubes)
   OPAQUE[235] = OPAQUE[236] = 0; blocks[235].opaque = blocks[236].opaque = false;
   // Cubes you can see through must not hide their neighbours' faces (no X-ray).
@@ -343,13 +381,14 @@ function DL_SHARED_FACTORY() {
   }
   const LEAVES = new Uint8Array(256);
   LEAVES[B.leaves] = LEAVES[B.skyroot_leaves] = LEAVES[B.golden_oak_leaves] = LEAVES[B.sift_leaves] = 1;
+  LEAVES[B.crystal_leaves] = LEAVES[B.apple_leaves] = LEAVES[B.experience_leaves] = LEAVES[B.scary_leaves] = 1;
   for (const n of ['birch', 'spruce', 'acacia', 'jungle', 'mangrove', 'cherry', 'pale_oak', 'azalea', 'flowering_azalea', 'dark_oak']) LEAVES[B[n + '_leaves']] = 1;
   const LOGS = new Uint8Array(256);
-  for (const n of ['log', 'dark_log', 'birch_log', 'spruce_log', 'acacia_log', 'jungle_log', 'mangrove_log', 'cherry_log', 'pale_oak_log', 'skyroot_log', 'golden_oak_log', 'sift_log']) LOGS[B[n]] = 1;
+  for (const n of ['log', 'dark_log', 'birch_log', 'spruce_log', 'acacia_log', 'jungle_log', 'mangrove_log', 'cherry_log', 'pale_oak_log', 'skyroot_log', 'golden_oak_log', 'sift_log', 'crystal_log']) LOGS[B[n]] = 1;
   S.LOGS = LOGS;
   /** Ground a little plant can grow on. */
   const SOIL = new Uint8Array(256);
-  for (const n of ['grass', 'dirt', 'podzol', 'coarse_dirt', 'mycelium', 'moss_block', 'mud', 'pale_moss_block', 'farmland', 'sift_turf', 'lullaby_moss']) SOIL[B[n]] = 1;
+  for (const n of ['grass', 'dirt', 'podzol', 'coarse_dirt', 'mycelium', 'moss_block', 'mud', 'pale_moss_block', 'farmland', 'sift_turf', 'lullaby_moss', 'crystal_grass']) SOIL[B[n]] = 1;
   S.SOIL = SOIL;
   S.LEAVES = LEAVES;
 
@@ -401,6 +440,7 @@ function DL_SHARED_FACTORY() {
     if ((id === B.grass || id === B.podzol || id === B.mycelium) && face >= 2 && (above === B.snow_layer || above === B.snow_block)) return T.grass_side_snow;
     if (id === B.grass && face === 1 && (above === B.snow_layer || above === B.snow_block)) return T.snow;
     if (id === B.wheat) return T.wheat_0 + Math.min(7, meta & 7);
+    if (STAGES[id] >= 0) return STAGES[id] + Math.min(3, (meta & 7) >> 1);
     if (id === B.farmland && face === 1) return meta > 0 ? T.farmland_wet : T.farmland_dry;
     if (id === B.end_portal_frame && face === 1 && (meta & 4)) return T.end_frame_eye;
     if (id === B.nether_wart) return T.nether_wart_0 + [0, 1, 1, 2][Math.min(3, meta & 3)];

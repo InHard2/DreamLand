@@ -980,6 +980,7 @@
   let nextItemTile = 0;
   function itemTile(name) { if (ITEM_TILES[name] === undefined) ITEM_TILES[name] = nextItemTile++; return ITEM_TILES[name]; }
   Tex.itemTile = name => ITEM_TILES[name];
+  Tex.ITEM_PAINT = {};
 
   /* ---------------------------------------------------------------- */
   /* Atlas build                                                      */
@@ -1069,7 +1070,13 @@
       const [rows, pal, oy] = ITEM_ART[name];
       const t = new Tile(name); t.clear(); t.art(rows, pal, 0, oy || 0); put(name, t);
     }
-    for (const mat of ['leather', 'iron', 'gold', 'diamond']) {
+    // icons painted by code: Tex.ITEM_PAINT[name] = (tile) => { ... }
+    for (const name in Tex.ITEM_PAINT) {
+      const t = new Tile(name); t.clear();
+      try { Tex.ITEM_PAINT[name](t); } catch (e) { console.warn('item icon', name, e); }
+      put(name, t);
+    }
+    for (const mat of ['leather', 'iron', 'gold', 'diamond'].concat(Tex.extraArmorMats || [])) {
       for (const piece in ARMOR_ART) {
         const t = new Tile(mat + piece); t.clear();
         const m = MAT[mat];

@@ -837,6 +837,7 @@
     copper: { L: '#f4b090', m: '#d8784e', d: '#a04a2a', o: '#3a1a0a' },
     echo: { L: '#d6fff6', m: '#2fd6c2', d: '#127e86', o: '#06262c' }
   };
+  Tex.TOOL_MAT = TOOL_MAT; // other modules add tool materials: { L, m, d, o }
   const HANDLE = { k: hex('#4a3216'), s: hex('#8a6430') };
   Tex.paintTool = function (t, mat, tool) {
     const m = TOOL_MAT[mat] || TOOL_MAT.iron;

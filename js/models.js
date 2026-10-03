@@ -549,6 +549,7 @@
     gold: [hex('#f4c83c'), hex('#c8961c'), hex('#fff098'), hex('#8a6410')],
     diamond: [hex('#62dcd6'), hex('#2ca6a2'), hex('#c6fcf6'), hex('#15706c')]
   };
+  M.ARMOR_MAT = ARMOR_MAT; // other modules add materials here: [main, dark, light, outline]
   M.ARMOR_MATS = Object.keys(ARMOR_MAT);
   function paintArmor(layer, mat) {
     const s = new Skin(layer === 1 ? 'armor1' : 'armor2', 30 + layer);
@@ -605,7 +606,7 @@
     SKINS.cow = paintCow();
     SKINS.sheep = paintSheep();
     SKINS.chicken = paintChicken();
-    for (const mat of M.ARMOR_MATS) {
+    for (const mat of Object.keys(ARMOR_MAT)) {
       SKINS['armor1_' + mat] = paintArmor(1, mat);
       SKINS['armor2_' + mat] = paintArmor(2, mat);
     }
