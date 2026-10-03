@@ -989,49 +989,80 @@
   }
   Tex.makeCanvas = makeCanvas;
 
-  Tex.build = function () {
-    // terrain
-    const terrain = makeCanvas(256, 256);
+  // Atlases: 16 tiles across, Tex.ROWS tiles down. Tex.RES / Tex.IRES are the pixel sizes of one
+  // terrain / item tile (16 for DreamLand's own art, more for high resolution resource packs).
+  Tex.ROWS = S.ATLAS_ROWS || 16;
+  Tex.RES = 16; Tex.IRES = 16;
+  function blit(img, W, idx, R, data, res) {
+    // copies a res x res RGBA tile into atlas slot idx (scaled to R x R by nearest neighbour)
+    const tx = (idx & 15) * R, ty = (idx >> 4) * R, k = res / R;
+    for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
+      const s = ((Math.floor(y * k)) * res + Math.floor(x * k)) * 4, d = ((ty + y) * W + tx + x) * 4;
+      img.data[d] = data[s]; img.data[d + 1] = data[s + 1]; img.data[d + 2] = data[s + 2]; img.data[d + 3] = data[s + 3];
+    }
+  }
+  Tex.blit = blit;
+  /** Paints every terrain tile: DreamLand's art, then any resource pack on top. */
+  Tex.paintTerrain = function () {
+    const R = Tex.RES, ROWS = Tex.ROWS;
+    const terrain = Tex.terrain && Tex.terrain.width === 16 * R ? Tex.terrain : makeCanvas(16 * R, ROWS * R);
     const tctx = terrain.getContext('2d');
-    const img = tctx.createImageData(256, 256);
+    const img = tctx.createImageData(16 * R, ROWS * R);
     Tex.tileData = {};
+    Tex.tileHi = {};
     for (let i = 0; i < S.TILE_NAMES.length; i++) {
       const name = S.TILE_NAMES[i];
       const t = new Tile(name);
       if (G[name]) G[name](t);
-      const tx = (i & 15) * 16, ty = (i >> 4) * 16;
-      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-        const s = (y * 16 + x) * 4, d = ((ty + y) * 256 + tx + x) * 4;
-        img.data[d] = t.d[s]; img.data[d + 1] = t.d[s + 1]; img.data[d + 2] = t.d[s + 2]; img.data[d + 3] = t.d[s + 3];
-      }
-      Tex.tileData[name] = t.d;
+      const pack = Tex.packTile && Tex.packTile(name);
+      Tex.tileData[name] = pack && pack.d16 ? pack.d16 : t.d;
+      if (pack) { blit(img, 16 * R, i, R, pack.data, pack.res); Tex.tileHi[i] = pack; }
+      else blit(img, 16 * R, i, R, t.d, 16);
     }
-    // bake initial animation frames
     for (const a of Tex.anims) {
-      const tx = (a.tile & 15) * 16, ty = (a.tile >> 4) * 16;
-      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-        const s = (y * 16 + x) * 4, d = ((ty + y) * 256 + tx + x) * 4;
-        for (let c = 0; c < 4; c++) img.data[d + c] = a.fx.data[s + c];
-      }
+      const f = Tex.animFrame(a);
+      if (f) blit(img, 16 * R, a.tile, R, f.data, f.res);
     }
     tctx.putImageData(img, 0, 0);
     Tex.terrain = terrain;
-
-    // items
-    const items = makeCanvas(256, 256);
+    return terrain;
+  };
+  /** The pixels a block's flat item is extruded from (resource pack tiles keep their resolution). */
+  Tex.tilePixels = (tile) => (Tex.tileHi && Tex.tileHi[tile]) || null;
+  /** The current frame of an animated tile, scaled to the atlas resolution if needed. */
+  Tex.animFrame = function (a) {
+    const R = Tex.RES;
+    if (a.pack) {
+      const fr = a.pack.frames[Math.floor(a.pack.t / a.pack.time) % a.pack.frames.length];
+      return { data: fr, res: a.pack.res };
+    }
+    if (R === 16) return { data: a.fx.data, res: 16 };
+    if (!a.up || a.up.length !== R * R * 4) a.up = new Uint8ClampedArray(R * R * 4);
+    const k = 16 / R, src = a.fx.data;
+    for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
+      const s = (Math.floor(y * k) * 16 + Math.floor(x * k)) * 4, d = (y * R + x) * 4;
+      a.up[d] = src[s]; a.up[d + 1] = src[s + 1]; a.up[d + 2] = src[s + 2]; a.up[d + 3] = src[s + 3];
+    }
+    return { data: a.up, res: R };
+  };
+  Tex.paintItems = function () {
+    const R = Tex.IRES, ROWS = Tex.ROWS;
+    const items = makeCanvas(16 * R, ROWS * R);
     const ictx = items.getContext('2d');
-    const iimg = ictx.createImageData(256, 256);
+    const iimg = ictx.createImageData(16 * R, ROWS * R);
+    Tex.itemData = {};
     const put = (name, t) => {
       const idx = itemTile(name);
-      const tx = (idx & 15) * 16, ty = (idx >> 4) * 16;
-      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-        const s = (y * 16 + x) * 4, d = ((ty + y) * 256 + tx + x) * 4;
-        for (let c = 0; c < 4; c++) iimg.data[d + c] = t.d[s + c];
-      }
+      Tex.itemData[name] = t.d;
+      const pack = Tex.packItem && Tex.packItem(name);
+      if (pack) blit(iimg, 16 * R, idx, R, pack.data, pack.res);
+      else blit(iimg, 16 * R, idx, R, t.d, 16);
     };
     for (const mat of ['wood', 'stone', 'iron', 'gold', 'diamond'].concat(Tex.extraToolMats || [])) {
       for (const tool of ['pickaxe', 'axe', 'shovel', 'sword', 'hoe']) {
-        const t = new Tile(mat + tool); t.clear(); t.art(ART[tool], toolPal(mat)); put(mat + '_' + tool, t);
+        const t = new Tile(mat + tool); t.clear();
+        if (Tex.paintTool) Tex.paintTool(t, mat, tool); else t.art(ART[tool], toolPal(mat));
+        put(mat + '_' + tool, t);
       }
     }
     for (const name in ITEM_ART) {
@@ -1048,7 +1079,15 @@
     }
     ictx.putImageData(iimg, 0, 0);
     Tex.items = items;
+    return items;
+  };
+  /** Draws one atlas tile onto a 2D canvas. */
+  Tex.drawTerrainTile = (ctx, tile, x, y, size) => { const R = Tex.RES; ctx.drawImage(Tex.terrain, (tile & 15) * R, (tile >> 4) * R, R, R, x, y, size || 16, size || 16); };
+  Tex.drawItemTile = (ctx, tile, x, y, size) => { const R = Tex.IRES; ctx.drawImage(Tex.items, (tile & 15) * R, (tile >> 4) * R, R, R, x, y, size || 16, size || 16); };
 
+  Tex.build = function () {
+    Tex.paintTerrain();
+    Tex.paintItems();
     Tex.buildGui();
   };
 

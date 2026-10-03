@@ -255,7 +255,7 @@
         for (let i = 0; i < 4; i++) this.slots.push({
           x: i < 2 ? 54 : 108, y: 7 + (i & 1) * 27, get: () => p.armor[i], set: (s) => { p.armor[i] = s; }, armor: i, armorSlot: true, max: 1,
           accept: (s) => { const d = I.get(s.id); return !!(d && d.armor && d.armor.slot === i); },
-          ghost: (x, y) => { const t = DL.Tex.itemTile(GHOST[i]); G.ctx.globalAlpha = 0.25; G.ctx.filter = 'grayscale(1) brightness(0.4)'; G.ctx.drawImage(DL.Tex.items, (t & 15) * 16, (t >> 4) * 16, 16, 16, x, y, 16, 16); G.ctx.filter = 'none'; G.ctx.globalAlpha = 1; }
+          ghost: (x, y) => { const t = DL.Tex.itemTile(GHOST[i]); G.ctx.globalAlpha = 0.25; G.ctx.filter = 'grayscale(1) brightness(0.4)'; DL.Tex.drawItemTile(G.ctx, t, x, y, 16); G.ctx.filter = 'none'; G.ctx.globalAlpha = 1; }
         });
         this.slots.push({ x: 173, y: 112, trash: true, get: () => null, set: () => { } });
         for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) {

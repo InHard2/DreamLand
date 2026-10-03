@@ -49,7 +49,7 @@
     const t = db.transaction(['worlds', 'chunks'], 'readwrite');
     t.objectStore('worlds').delete(slot);
     t.objectStore('chunks').delete(IDBKeyRange.bound(slot + ':', slot + ':￿'));
-    for (let d = 1; d <= 3; d++) t.objectStore('chunks').delete(IDBKeyRange.bound(slot + '@' + d + ':', slot + '@' + d + ':￿'));
+    for (let d = 1; d <= 4; d++) t.objectStore('chunks').delete(IDBKeyRange.bound(slot + '@' + d + ':', slot + '@' + d + ':￿'));
     t.oncomplete = () => resolve(); t.onerror = () => resolve();
   }));
 

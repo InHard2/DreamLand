@@ -136,9 +136,9 @@
     document.addEventListener('dblclick', (e) => e.preventDefault());
 
     window.addEventListener('gamepadconnected', (e) => {
-      In.gp.index = e.gamepad.index; In.gp.connected = true; In.gp.id = e.gamepad.id;
+      In.gp.connected = true; In.gp.id = e.gamepad.id;
       In.lastDevice = 'gamepad';
-      emit('gamepad', { connected: true, id: e.gamepad.id });
+      In.getPad();
     });
     window.addEventListener('gamepaddisconnected', (e) => {
       if (e.gamepad.index === In.gp.index) { In.gp.index = -1; In.gp.connected = false; }
@@ -255,28 +255,86 @@
   /* ------------------------------------------------------------ */
   const GPB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15, HOME: 16 };
   In.GPB = GPB;
+  // Controller access can be switched off by the page that embeds the game (permissions policy).
+  In.padBlocked = (function () {
+    try {
+      const fp = document.permissionsPolicy || document.featurePolicy;
+      if (fp && fp.allowsFeature && !fp.allowsFeature('gamepad')) return true;
+    } catch (e) { /* ignore */ }
+    return !navigator.getGamepads;
+  })();
+  function readPads() {
+    if (!navigator.getGamepads) return [];
+    try { return Array.from(navigator.getGamepads() || []); } catch (e) { In.padBlocked = true; return []; }
+  }
+  // Every pad we have seen: resting axes (so stuck axes on phantom devices never count as input) and when it was last used.
+  const seen = new Map();
+  const XBOXY = /xbox|xinput|045e|microsoft|standard gamepad/i;
+  function padInfo(p) {
+    let s = seen.get(p.index);
+    if (!s || s.id !== p.id) {
+      s = { id: p.id, rest: Array.from(p.axes, a => Math.abs(a) > 0.5 ? a : 0), used: 0, announced: false };
+      seen.set(p.index, s);
+    }
+    return s;
+  }
+  function active(p, s) {
+    for (const b of p.buttons) if ((typeof b === 'object' ? b.pressed || b.value > 0.5 : b > 0.5)) return true;
+    for (let i = 0; i < p.axes.length; i++) if (Math.abs((p.axes[i] || 0) - (s.rest[i] || 0)) > 0.5) return true;
+    return false;
+  }
   In.getPad = function () {
-    if (!navigator.getGamepads) return null;
-    const pads = navigator.getGamepads();
-    if (In.gp.index >= 0 && pads[In.gp.index]) return pads[In.gp.index];
-    for (const p of pads) if (p && p.connected) { In.gp.index = p.index; In.gp.connected = true; In.gp.id = p.id; return p; }
-    return null;
+    let best = null, bestScore = -1;
+    const now = performance.now();
+    for (const p of readPads()) {
+      if (!p || p.connected === false) continue;
+      const s = padInfo(p);
+      if (active(p, s)) s.used = now;
+      // the pad that was used last wins; before any input, prefer a real Xbox / standard pad
+      const score = s.used * 10 + (p.mapping === 'standard' ? 2 : 0) + (XBOXY.test(p.id) ? 1 : 0);
+      if (score > bestScore) { bestScore = score; best = p; }
+    }
+    if (best) {
+      In.gp.index = best.index; In.gp.connected = true; In.gp.id = best.id; In.gp.mapping = best.mapping || '';
+      const s = seen.get(best.index);
+      if (s && s.used && !s.announced) { s.announced = true; emit('gamepad', { connected: true, id: best.id }); }
+    } else In.gp.connected = false;
+    return best;
   };
+  const btnVal = (b) => (b === undefined ? 0 : typeof b === 'object' ? (b.pressed && !b.value ? 1 : b.value) : b);
+  /** Buttons and sticks in the standard (Xbox) layout, whatever layout the browser reports. */
+  function standardize(p) {
+    const raw = Array.from(p.buttons, btnVal), a = Array.from(p.axes);
+    if (p.mapping === 'standard' || (raw.length >= 17 && a.length <= 4)) return { buttons: raw, axes: [a[0] || 0, a[1] || 0, a[2] || 0, a[3] || 0] };
+    // Common raw Xbox layout (Firefox, older drivers): axes lx, ly, lt, rx, ry, rt, dpad x, dpad y;
+    // buttons A B X Y LB RB View Menu Xbox LS RS.
+    const b = new Array(17).fill(0);
+    const map = [0, 1, 2, 3, 4, 5, 8, 9, 16, 10, 11];
+    for (let i = 0; i < map.length && i < raw.length; i++) b[map[i]] = raw[i];
+    let rx = a[3] || 0, ry = a[4] || 0;
+    if (a.length >= 6) {
+      b[6] = Math.max(b[6], ((a[2] || -1) + 1) / 2); b[7] = Math.max(b[7], ((a[5] || -1) + 1) / 2);
+    } else { rx = a[2] || 0; ry = a[3] || 0; }
+    if (a.length >= 8) { b[14] = a[6] < -0.5 ? 1 : 0; b[15] = a[6] > 0.5 ? 1 : 0; b[12] = a[7] < -0.5 ? 1 : 0; b[13] = a[7] > 0.5 ? 1 : 0; }
+    if (raw.length >= 15) for (let i = 12; i <= 15; i++) b[i] = Math.max(b[i], raw[i] || 0);
+    return { buttons: b, axes: [a[0] || 0, a[1] || 0, rx, ry] };
+  }
   In.pollGamepad = function () {
     const p = In.getPad();
     const G = In.gp;
     G.prev = G.buttons.slice();
     if (!p) { G.buttons = []; G.axes = [0, 0, 0, 0]; return; }
-    G.buttons = p.buttons.map(b => (typeof b === 'object' ? b.value : b));
+    const st = standardize(p);
+    G.buttons = st.buttons;
     const dz = (x, y) => {
       const l = Math.hypot(x, y);
       if (l < 0.16) return [0, 0];
       const k = Math.min(1, (l - 0.16) / 0.84) / l;
       return [x * k, y * k];
     };
-    const a = p.axes;
-    const [lx, ly] = dz(a[0] || 0, a[1] || 0);
-    const [rx, ry] = dz(a[2] || 0, a[3] || 0);
+    const a = st.axes;
+    const [lx, ly] = dz(a[0], a[1]);
+    const [rx, ry] = dz(a[2], a[3]);
     G.axes = [lx, ly, rx, ry];
     const any = G.buttons.some(v => v > 0.3) || Math.abs(lx) + Math.abs(ly) + Math.abs(rx) + Math.abs(ry) > 0.2;
     if (any && In.lastDevice !== 'gamepad') { In.lastDevice = 'gamepad'; emit('devicechange', { device: 'gamepad' }); }

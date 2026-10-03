@@ -10,7 +10,7 @@
   const St = DL.Structures;
   const SOLID = S.SOLID, OPAQUE = S.OPAQUE;
   const W = DL.World.prototype;
-  const NAMES = ['the Overworld', 'the Nether', 'the End', 'the Aether'];
+  const NAMES = ['the Overworld', 'the Nether', 'the End', 'the Aether', 'the Sift'];
   DL.DIM_NAMES = NAMES;
 
   /* ------------------------------------------------------------ */
@@ -155,7 +155,7 @@
   /* ------------------------------------------------------------ */
   /* Portal blocks                                                */
   /* ------------------------------------------------------------ */
-  const isFrameFor = (portal) => portal === B.nether_portal ? (id) => id === B.obsidian || id === B.crying_obsidian : (id) => id === B.glowstone;
+  const isFrameFor = (portal) => portal === B.nether_portal ? (id) => id === B.obsidian || id === B.crying_obsidian : portal === B.sift_rift ? (id) => id === B.crying_obsidian : (id) => id === B.glowstone;
   function portalOK(w, x, y, z, id) {
     const frame = isFrameFor(id);
     const ok = (a, b, c) => { const n = w.getBlock(a, b, c); return n === id || frame(n); };
@@ -166,7 +166,7 @@
   const nc = W.neighborChanged;
   W.neighborChanged = function (x, y, z) {
     const id = this.getBlock(x, y, z);
-    if ((id === B.nether_portal || id === B.aether_portal) && !portalOK(this, x, y, z, id)) { this.setBlock(x, y, z, 0, 0, 3); return; }
+    if ((id === B.nether_portal || id === B.aether_portal || id === B.sift_rift) && !portalOK(this, x, y, z, id)) { this.setBlock(x, y, z, 0, 0, 3); return; }
     if (id === B.water && this.dim === 1) { this.setBlock(x, y, z, 0, 0, 3); return; }
     return nc.apply(this, arguments);
   };
@@ -203,8 +203,8 @@
 
   /** Build a portal (frame + portal blocks) with its base at (x, y, z), running along x. */
   function buildPortal(w, x, y, z, portal) {
-    const frame = portal === B.nether_portal ? B.obsidian : B.glowstone;
-    const plat = w.dim === 3 ? B.holystone : w.dim === 1 ? B.obsidian : B.obsidian;
+    const frame = portal === B.nether_portal ? B.obsidian : portal === B.sift_rift ? B.crying_obsidian : B.glowstone;
+    const plat = w.dim === 3 ? B.holystone : w.dim === 4 ? B.sift_stone_bricks : B.obsidian;
     for (let dx = -1; dx <= 2; dx++) for (let dz = -1; dz <= 1; dz++) {
       if (!SOLID[w.getBlock(x + dx, y - 1, z + dz)]) w.setBlock(x + dx, y - 1, z + dz, plat, 0, 2);
       for (let dy = 0; dy < 4; dy++) if (dz !== 0) w.setBlock(x + dx, y + dy, z + dz, 0, 0, 2);
@@ -305,13 +305,13 @@
   GP.arrive = function (a) {
     const w = this.world, p = this.player;
     const dim = w.dim || 0;
-    if (a.type === 'nether' || a.type === 'aether') {
-      const id = a.type === 'nether' ? B.nether_portal : B.aether_portal;
+    if (a.type === 'nether' || a.type === 'aether' || a.type === 'sift') {
+      const id = a.type === 'nether' ? B.nether_portal : a.type === 'sift' ? B.sift_rift : B.aether_portal;
       let pos = findPortal(w, a.x, a.z, id, 16);
       if (!pos) {
         let spot;
         if (dim === 1) spot = findSpot(w, a.x, a.z, 100, 32) || [Math.floor(a.x), 70, Math.floor(a.z)];
-        else if (dim === 3) { const y = w.topSolidY(Math.floor(a.x), Math.floor(a.z)); spot = y > 20 ? [Math.floor(a.x), y, Math.floor(a.z)] : [Math.floor(a.x), 90, Math.floor(a.z)]; if (y <= 20) for (let dx = -3; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) w.setBlock(spot[0] + dx, 89, spot[2] + dz, B.holystone, 0, 2); }
+        else if (dim === 3 || dim === 4) { const y = w.topSolidY(Math.floor(a.x), Math.floor(a.z)); spot = y > 20 ? [Math.floor(a.x), y, Math.floor(a.z)] : [Math.floor(a.x), 90, Math.floor(a.z)]; if (y <= 20) for (let dx = -3; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) w.setBlock(spot[0] + dx, 89, spot[2] + dz, dim === 4 ? B.sift_stone_bricks : B.holystone, 0, 2); }
         else { const y = w.topSolidY(Math.floor(a.x), Math.floor(a.z)); spot = [Math.floor(a.x), Math.max(y, S.SEA + 1), Math.floor(a.z)]; }
         buildPortal(w, spot[0], spot[1], spot[2], id);
         pos = spot;
@@ -338,10 +338,10 @@
         const s = findSpot(w, p.x, p.z, 100, 32);
         if (s) p.setPos(s[0] + 0.5, s[1], s[2] + 0.5);
         else { const x = Math.floor(p.x), z = Math.floor(p.z); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { w.setBlock(x + dx, 69, z + dz, B.netherrack, 0, 2); for (let dy = 0; dy < 3; dy++) w.setBlock(x + dx, 70 + dy, z + dz, 0, 0, 2); } p.setPos(x + 0.5, 70, z + 0.5); }
-      } else if (dim === 3) {
+      } else if (dim === 3 || dim === 4) {
         const x = Math.floor(p.x), z = Math.floor(p.z), y = w.topSolidY(x, z);
         if (y > 20) p.setPos(p.x, y, p.z);
-        else { for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) w.setBlock(x + dx, 89, z + dz, B.holystone, 0, 2); p.setPos(x + 0.5, 90, z + 0.5); }
+        else { for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) w.setBlock(x + dx, 89, z + dz, dim === 4 ? B.sift_stone_bricks : B.holystone, 0, 2); p.setPos(x + 0.5, 90, z + 0.5); }
       } else {
         const y = w.topSolidY(Math.floor(p.x), Math.floor(p.z));
         p.setPos(p.x, Math.max(y, 1), p.z);
@@ -407,7 +407,7 @@
         for (let z = Math.floor(bb[2] + 0.05); z <= Math.floor(bb[5] - 0.05) && !inP; z++)
           for (let y = Math.floor(bb[1]); y <= Math.floor(bb[4] - 0.05) && !inP; y++) {
             const id = w.getBlock(x, y, z);
-            if (id === B.nether_portal || id === B.aether_portal || id === B.end_portal) { inP = id; meta = w.getMeta(x, y, z); }
+            if (id === B.nether_portal || id === B.aether_portal || id === B.end_portal || id === B.sift_rift) { inP = id; meta = w.getMeta(x, y, z); }
           }
       // after arriving, step out of the portal before it can take you back
       if (!inP) p.portalLock = false;
@@ -435,6 +435,7 @@
           if (p.portalTime >= (p.creative ? 2 : 80)) {
             p.portalTime = 0;
             if (inP === B.nether_portal) this.travel(w.dim === 1 ? 0 : 1, { type: 'nether' });
+            else if (inP === B.sift_rift) this.travel(w.dim === 4 ? 0 : 4, { type: 'sift' });
             else this.travel(w.dim === 3 ? 0 : 3, { type: 'aether' });
             return;
           }
@@ -468,6 +469,7 @@
       const x = Math.floor(p.x) + w.rng.nextInt(24) - 12, y = Math.floor(p.y) + w.rng.nextInt(16) - 8, z = Math.floor(p.z) + w.rng.nextInt(24) - 12;
       const id = w.getBlock(x, y, z);
       if (id === B.nether_portal || id === B.end_portal || id === B.aether_portal) this.spawnParticles('portal', x + Math.random(), y + Math.random(), z + Math.random(), 1, 0);
+      else if (id === B.sift_rift) this.spawnParticles('soul', x + Math.random(), y + Math.random(), z + Math.random(), 1, 0);
       else if (id === B.end_rod && Math.random() < 0.2) this.spawnParticles('happy', x + 0.5, y + 0.7, z + 0.5, 1, 0.2);
     }
   };

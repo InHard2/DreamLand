@@ -404,6 +404,8 @@
     serialize() { return null; }
   }
   N.RemotePlayer = RemotePlayer;
+  // extra message types added by later modules: N.hostHandlers[t](conn, msg, rp, world, game), N.clientHandlers[t](client, msg, game, world, player)
+  N.hostHandlers = {}; N.clientHandlers = {};
 
   /* ------------------------------------------------------------ */
   /* Host                                                         */
@@ -452,11 +454,12 @@
       switch (m.t) {
         case 'ps': {
           if (!isVec(m.p, 3, 3e7) || !isVec(m.r, 4, 100) || m.p[1] < -200 || m.p[1] > 600) return;
-          if (isInt(m.dim, 0, 3) && m.dim !== (w.dim || 0)) return;
+          if (isInt(m.dim, 0, 4) && m.dim !== (w.dim || 0)) return;
           rp.target = m.p.slice();
           rp.tyaw = m.r[0]; rp.pitch = Math.max(-1.6, Math.min(1.6, m.r[1])); rp.tbody = m.r[2];
           const fl = isInt(m.f, 0, 255) ? m.f : 0;
           rp.sneaking = !!(fl & 1); rp.onGround = !!(fl & 2); rp.creative = !!(fl & 4) && !!g.meta.creative;
+          rp.swimming = !!(fl & 8); rp.eating = !!(fl & 16); rp.seated = !!(fl & 32);
           rp.health = isNum(m.hp, -100, 100) ? m.hp : 20;
           if (isInt(m.sw, -1, 6) && m.sw === 0) rp.swingTicks = 0;
           rp.held = isInt(m.h, 1, 511) && I.get(m.h) ? { id: m.h, count: 1 } : null;
@@ -575,6 +578,7 @@
           return;
         }
         case 'bye': this.link.close(); return;
+        default: if (Object.prototype.hasOwnProperty.call(N.hostHandlers, m.t)) N.hostHandlers[m.t](this, m, rp, w, g);
       }
     }
     correct(x, y, z) {
@@ -802,7 +806,7 @@
       if (this.game.world) { this.game.world.netHost = null; this.game.world.extraCenters = null; }
     }
   }
-  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer', 'grumpy', 'sliding', 'grazing'];
+  const KEYS = ['sheared', 'fuse', 'prevFuse', 'eatTimer', 'charge', 'provoked', 'tamed', 'sitting', 'awake', 'peek', 'prevPeek', 'perched', 'jawOpen', 'attackAnim', 'squish', 'scale', 'variant', 'flapTime', 'headShake', 'healer', 'grumpy', 'sliding', 'grazing', 'rearing'];
   function encodeEnt(e, host) {
     const t = e.type;
     if (!t) return null;
@@ -819,6 +823,9 @@
         const held = e.held; if (held) x.h = held.id;
         x.a = (e.armor || []).map(s => s ? s.id : 0);
         if (e.sneaking) x.sn = 1;
+        if (e.swimming) x.swm = 1;
+        if (e.eating) x.eat = 1;
+        if (e.vehicle || e.sitting || e.seated) x.rd = 1;
         x.by = e.isRemote ? e.conn.by : host.myId || null;
         if (e.health <= 0) x.dt = Math.max(1, x.dt || 1);
       }
@@ -866,6 +873,7 @@
         this.held = x.h && I.get(x.h) ? { id: x.h, count: 1 } : null;
         this.armor = (Array.isArray(x.a) ? x.a : [0, 0, 0, 0]).slice(0, 4).map(id => id && I.get(id) ? { id, count: 1 } : null);
         this.sneaking = !!x.sn; this.by = typeof x.by === 'string' ? x.by.slice(0, 80) : null;
+        this.swimming = !!x.swm; this.eating = !!x.eat; this.seated = !!x.rd;
       } else if (this.type === 'item' && Array.isArray(x.st)) {
         const st = validStack({ id: x.st[0], count: Math.max(1, Math.min(64, x.st[1] | 0)), dmg: 0 });
         if (st) this.stack = st;
@@ -919,7 +927,7 @@
       switch (m.t) {
         case 'welcome': this.start(m); return;
         case 'kick': this.kickReason = clean(m.r, 60) || 'Disconnected'; return;
-        case 'world': if (isInt(m.dim, 0, 3) && isVec(m.pos, 3, 3e7)) this.enterWorld(m.dim, m.pos, isNum(m.time, 0, 1e12) ? m.time : 0, m.fy); return;
+        case 'world': if (isInt(m.dim, 0, 4) && isVec(m.pos, 3, 3e7)) this.enterWorld(m.dim, m.pos, isNum(m.time, 0, 1e12) ? m.time : 0, m.fy); return;
       }
       if (!w || !p) return;
       switch (m.t) {
@@ -998,6 +1006,7 @@
           return;
         }
         case 'wait': if (G.screen === null || !(G.screen instanceof G.LoadingScreen)) { const ls = new G.LoadingScreen(g); ls.title = 'The host is changing dimension'; ls.status = 'Please wait'; ls.progress = -1; g.setScreen(ls); this.waiting = ls; } return;
+        default: if (Object.prototype.hasOwnProperty.call(N.clientHandlers, m.t)) N.clientHandlers[m.t](this, m, g, w, p);
       }
     }
     binary(h, payload) {
@@ -1048,7 +1057,7 @@
       this.send({ t: 'drop', p: [F2(p.x), F2(p.y + p.eye - 0.3), F2(p.z)], v: [F2(-s * pc * 0.3), F2(ps * 0.3 + 0.1), F2(-c * pc * 0.3)], st });
     }
     start(m) {
-      if (this.started || !isInt(m.seed, -2147483648, 2147483647) || !isInt(m.dim, 0, 3) || !isVec(m.pos, 3, 3e7)) return;
+      if (this.started || !isInt(m.seed, -2147483648, 2147483647) || !isInt(m.dim, 0, 4) || !isVec(m.pos, 3, 3e7)) return;
       this.started = true;
       const g = this.game;
       g.meta = { slot: '__lan', name: clean(m.n, 32) || 'LAN World', seed: m.seed, creative: !!m.cr, spawn: isVec(m.sp, 3, 3e7) ? m.sp : m.pos, mp: true, dragonKilled: !!m.dk };
@@ -1097,7 +1106,7 @@
       this.tickN++;
       this.flush();
       if (!p || g.loading) return;
-      const fl = (p.sneaking ? 1 : 0) | (p.onGround ? 2 : 0) | (p.creative ? 4 : 0);
+      const fl = (p.sneaking ? 1 : 0) | (p.onGround ? 2 : 0) | (p.creative ? 4 : 0) | (p.swimming ? 8 : 0) | (p.eating ? 16 : 0) | (p.vehicle || p.sitting ? 32 : 0);
       this.send({
         t: 'ps', p: [F2(p.x), F2(p.y), F2(p.z)], r: [F2(p.yaw), F2(p.pitch), F2(p.bodyYaw), F2(p.headYaw)], f: fl,
         hp: p.health, sw: p.swingTicks, h: p.held ? p.held.id : 0, a: p.armor.map(s => s ? s.id : 0), dim: w.dim || 0

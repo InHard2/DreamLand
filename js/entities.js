@@ -189,8 +189,9 @@
         }
       }
       this.x += rx; this.y += ry; this.z += rz;
-      this.collidedH = rx !== cdx || rz !== cdz;
-      this.collidedV = ry !== dy;
+      // tiny moves are snapped to 0 by the sweep: only a real block counts as a collision
+      this.collidedH = Math.abs(rx - cdx) > 1e-6 || Math.abs(rz - cdz) > 1e-6;
+      this.collidedV = Math.abs(ry - dy) > 1e-6;
       this.onGround = ry !== dy && dy < 0;
       if (rx !== cdx) this.vx = 0;
       if (ry !== dy) this.vy = 0;

@@ -125,7 +125,7 @@
     } else {
       const src = d.isBlock ? DL.Tex.terrain : DL.Tex.items;
       const tile = d.isBlock ? DL.S.blocks[d.block].icon : DL.Tex.itemTile(d.icon || d.name);
-      ctx.drawImage(src, (tile & 15) * 16, (tile >> 4) * 16, 16, 16, x, y, 16, 16);
+      if (d.isBlock) DL.Tex.drawTerrainTile(ctx, tile, x, y, 16); else DL.Tex.drawItemTile(ctx, tile, x, y, 16); void src;
     }
     if (d.maxDamage && stack.dmg > 0) {
       const f = 1 - stack.dmg / d.maxDamage;
@@ -323,6 +323,7 @@
       G.text('DreamLand Alpha v1.2.6', 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
       const c = 'Not affiliated with Mojang. A fan tribute.';
       G.text(c, G.W - F.width(c) - 2 - G.safe.r, G.H - 10 - G.safe.b, '#FFFFFF');
+      if (DL.Input.padBlocked && navigator.getGamepads) G.text('Controllers are blocked in this embedded page: use the downloaded copy to play with one', 2 + G.safe.l, G.H - 10 - G.safe.b, '#A0A0A0');
       this.drawWidgets(mx, my);
     }
     key() { }
@@ -441,9 +442,13 @@
       this.widgets = [];
       const st = this.game.settings;
       const cx = G.W / 2;
-      const y0 = Math.max(24, G.H / 6 - 12);
-      const col = (i) => cx - 155 + (i % 2) * 160;
-      const row = (i) => y0 + 24 * (i >> 1);
+      let y0 = Math.max(24, G.H / 6 - 12);
+      // two columns, or three when two would run off the bottom of the screen
+      const N0 = 18, three = y0 + 24 * Math.ceil(N0 / 2) + 52 > G.H && G.W >= 470;
+      const NC = three ? 3 : 2;
+      if (!three && y0 + 24 * Math.ceil(N0 / 2) + 52 > G.H) y0 = Math.max(16, G.H - 24 * Math.ceil(N0 / 2) - 52);
+      const col = (i) => cx - (NC * 155 - 5) / 2 + (i % NC) * 155;
+      const row = (i) => y0 + 24 * Math.floor(i / NC);
       const opts = [
         { slider: true, label: () => 'Music: ' + (st.music ? Math.round(st.music * 100) + '%' : 'OFF'), value: st.music, set: v => { st.music = v; this.game.applySettings(); } },
         { slider: true, label: () => 'Sound: ' + (st.sound ? Math.round(st.sound * 100) + '%' : 'OFF'), value: st.sound, set: v => { st.sound = v; this.game.applySettings(); } },
@@ -472,10 +477,12 @@
           b.label = o.label();
         }
       });
-      const by = row(opts.length) + 4;
-      this.btn('Controls...', cx - 155, by, 150, 20, () => this.game.setScreen(new ControlsScreen(this.game, this)));
-      this.btn('Touch & Controller...', cx + 5, by, 150, 20, () => this.game.setScreen(new DeviceOptionsScreen(this.game, this)));
-      this.btn('Done', cx - 100, Math.min(G.H - 24, by + 28), 200, 20, () => { this.game.saveSettings(); this.back(); });
+      const by = row(opts.length + NC - 1) + 4;
+      const more = [['Controls...', () => new ControlsScreen(this.game, this)], ['Touch & Controller...', () => new DeviceOptionsScreen(this.game, this)]];
+      if (G.ResourcePackScreen) more.push(['Resource Packs...', () => new G.ResourcePackScreen(this.game, this)]);
+      const bw = three ? 150 : Math.floor((310 - (more.length - 1) * 4) / more.length), bx0 = three ? cx - 230 : cx - 155;
+      more.forEach(([label, mk], i) => this.btn(more.length > 2 && !three && label === 'Touch & Controller...' ? 'Touch & Pad...' : label, bx0 + i * (bw + (three ? 5 : 4)), by, bw, 20, () => this.game.setScreen(mk())));
+      this.btn('Done', cx - 100, Math.min(G.H - 24, by + 26), 200, 20, () => { this.game.saveSettings(); this.back(); });
       if (this.focus < 0 && DL.Input.lastDevice === 'gamepad') this.focus = 0;
     }
     draw(mx, my) {
@@ -990,7 +997,7 @@
         this.slots.push({
           x: 8, y: 8 + i * 18, get: () => p.armor[k], set: (s) => { p.armor[k] = s; }, max: 1,
           accept: (s) => { const d = I().get(s.id); return d && d.armor && d.armor.slot === k; },
-          ghost: (x, y) => { const t = DL.Tex.itemTile(['leather_helmet', 'leather_chestplate', 'leather_leggings', 'leather_boots'][k]); G.ctx.globalAlpha = 0.25; G.ctx.filter = 'grayscale(1) brightness(0.4)'; G.ctx.drawImage(DL.Tex.items, (t & 15) * 16, (t >> 4) * 16, 16, 16, x, y, 16, 16); G.ctx.filter = 'none'; G.ctx.globalAlpha = 1; },
+          ghost: (x, y) => { const t = DL.Tex.itemTile(['leather_helmet', 'leather_chestplate', 'leather_leggings', 'leather_boots'][k]); G.ctx.globalAlpha = 0.25; G.ctx.filter = 'grayscale(1) brightness(0.4)'; DL.Tex.drawItemTile(G.ctx, t, x, y, 16); G.ctx.filter = 'none'; G.ctx.globalAlpha = 1; },
           armorSlot: true
         });
       }
@@ -1236,24 +1243,76 @@
       if (i * 2 + 1 < hp) ctx.drawImage(DL.Tex.gui.heartFull, x, y);
       else if (i * 2 + 1 === hp) ctx.drawImage(DL.Tex.gui.heartHalf, x, y);
     }
-    // armor
+    const gui = DL.Tex.gui;
+    // absorption (golden) hearts continue after the red ones, in new rows of ten
+    const absorb = Math.ceil(p.absorb || 0);
+    let rows = 1;
+    for (let i = 0; i < Math.ceil(absorb / 2) && gui.heartGold; i++) {
+      const slot = 10 + i, row = Math.floor(slot / 10), x = hx + (slot % 10) * 8, y = gy - row * 10;
+      ctx.drawImage(gui.heartEmpty, x, y);
+      ctx.drawImage(i * 2 + 1 < absorb ? gui.heartGold : gui.heartGoldHalf, x, y);
+      rows = Math.max(rows, row + 1);
+    }
+    // armor sits above the hearts
     const armor = p.armorValue();
     if (armor > 0) {
       for (let i = 0; i < 10; i++) {
-        const x = hx + 182 - 9 - i * 8;
-        const img = i * 2 + 1 < armor ? DL.Tex.gui.armorFull : i * 2 + 1 === armor ? DL.Tex.gui.armorHalf : DL.Tex.gui.armorEmpty;
-        ctx.drawImage(img, x, gy);
+        const img = i * 2 + 1 < armor ? gui.armorFull : i * 2 + 1 === armor ? gui.armorHalf : gui.armorEmpty;
+        ctx.drawImage(img, hx + i * 8, gy - rows * 10);
       }
     }
-    // air
-    if (p.headInWater() && p.air < 300) {
-      const full = Math.ceil((p.air - 2) * 10 / 300), part = Math.ceil(p.air * 10 / 300) - full;
-      for (let i = 0; i < full + part; i++) {
-        const x = hx + 182 - 9 - i * 8;
-        ctx.drawImage(i < full ? DL.Tex.gui.bubble : DL.Tex.gui.bubblePop, x, gy - (armor > 0 ? 10 : 0));
+    // right side: the mount's health while riding, otherwise hunger
+    const right = hx + 182 - 9;
+    let rightRows = 1;
+    const mount = p.vehicle && p.vehicle.living && p.vehicle.maxHealth ? p.vehicle : null;
+    if (mount) {
+      const mh = Math.max(0, Math.ceil(mount.health)), n = Math.ceil(mount.maxHealth / 2);
+      rightRows = Math.ceil(n / 10);
+      for (let i = 0; i < n; i++) {
+        const x = right - (i % 10) * 8, y = gy - Math.floor(i / 10) * 10;
+        ctx.drawImage(gui.heartEmpty, x, y);
+        if (i * 2 + 1 < mh) ctx.drawImage(gui.heartMount || gui.heartFull, x, y);
+        else if (i * 2 + 1 === mh) ctx.drawImage(gui.heartMountHalf || gui.heartHalf, x, y);
       }
+    } else if (p.food !== undefined && gui.foodFull) {
+      const sick = !!(p.effects && p.effects.hunger);
+      const shake = p.sat <= 0 && game.tickCount % (p.food * 3 + 1) === 0;
+      for (let i = 0; i < 10; i++) {
+        const x = right - i * 8, y = gy + (shake ? rng.nextInt(3) - 1 : 0);
+        ctx.drawImage(sick ? gui.foodEmptySick : gui.foodEmpty, x, y);
+        if (i * 2 + 1 < p.food) ctx.drawImage(sick ? gui.foodFullSick : gui.foodFull, x, y);
+        else if (i * 2 + 1 === p.food) ctx.drawImage(sick ? gui.foodHalfSick : gui.foodHalf, x, y);
+      }
+    }
+    // air bubbles above the hunger bar
+    if ((p.headInWater() || p.air < 300) && p.air < 300) {
+      const air = Math.max(0, p.air);
+      const full = Math.ceil((air - 2) * 10 / 300), part = Math.ceil(air * 10 / 300) - full;
+      for (let i = 0; i < full + part; i++) ctx.drawImage(i < full ? gui.bubble : gui.bubblePop, right - i * 8, gy - rightRows * 10);
     }
     G.drawHUDExtras(game, W, H, hy);
+  };
+
+  /* Short notices drawn over every screen (controller connected, resource pack loaded, ...) */
+  G.notices = [];
+  G.notice = function (text, ms) {
+    G.notices = G.notices.filter(n => n.text !== text);
+    G.notices.push({ text: String(text).slice(0, 90), t: performance.now(), ms: ms || 4000 });
+    if (G.notices.length > 3) G.notices.shift();
+  };
+  G.drawNotices = function () {
+    const now = performance.now();
+    G.notices = G.notices.filter(n => now - n.t < n.ms);
+    let y = 4 + G.safe.t;
+    for (const n of G.notices) {
+      const a = Math.min(1, (n.ms - (now - n.t)) / 400, (now - n.t) / 150);
+      const w = F.width(n.text) + 10, x = Math.floor(G.W / 2 - w / 2);
+      G.ctx.globalAlpha = Math.max(0, a);
+      G.rect(x, y, w, 13, 'rgba(0,0,0,0.7)');
+      G.text(n.text, x + 5, y + 3, '#FFFFA0');
+      G.ctx.globalAlpha = 1;
+      y += 15;
+    }
   };
 
   G.drawHUDExtras = function (game, W, H, hy) {

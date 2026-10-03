@@ -125,7 +125,7 @@
   const pose = M.pose;
   M.pose = function (name, e, pt) {
     const o = pose.call(this, name, e, pt);
-    if ((name === 'player' || name === 'armor1' || name === 'armor2') && e && (e.vehicle || e.sitting)) { o.rleg = [-1.4, 0.3, 0]; o.lleg = [-1.4, -0.3, 0]; }
+    if ((name === 'player' || name === 'armor1' || name === 'armor2') && e && (e.vehicle || e.sitting || e.seated)) { o.rleg = [-1.4, 0.3, 0]; o.lleg = [-1.4, -0.3, 0]; }
     return o;
   };
 
@@ -136,7 +136,7 @@
     for (const pn in mdl.parts) mdl.parts[pn].boxes.forEach((b, bi) => {
       const c = colors[pn + ':' + bi] !== undefined ? colors[pn + ':' + bi] : colors[pn] !== undefined ? colors[pn] : colors._;
       if (!c) { s.fill(pn, bi, 'all', () => [0, 0, 0, 0]); return; }
-      const base = hex(c[0] || c), v = c[1] === undefined ? 0.08 : c[1];
+      const base = hex(Array.isArray(c) ? c[0] : c), v = Array.isArray(c) && c[1] !== undefined ? c[1] : 0.08;
       for (const f of ['bottom', 'top', 'front', 'back', 'left', 'right']) {
         const k = f === 'top' ? 1.08 : f === 'bottom' ? 0.82 : 1;
         s.fill(pn, bi, f, () => { const j = 1 + (s.r.next() - 0.5) * 2 * v; return [Math.min(255, base[0] * k * j), Math.min(255, base[1] * k * j), Math.min(255, base[2] * k * j)]; });
@@ -300,7 +300,6 @@
       return true;
     }
     if (held) return false;
-    if (isGuest()) { game.chatMessage('§7Only the host can ride horses for now.'); return true; }
     if (p.vehicle || m.rider) return true;
     mount(p, m, game);
     return true;
@@ -368,7 +367,7 @@
     this.sitting = null;
     const g = DL.game;
     if (g && g.player === this) {
-      const dims = ['the Overworld', 'the Nether', 'the End', 'the Aether'];
+      const dims = DL.DIM_NAMES || ['the Overworld', 'the Nether', 'the End', 'the Aether', 'the Sift'];
       g.chatMessage('§cYou died at ' + Math.floor(this.x) + ', ' + Math.floor(this.y) + ', ' + Math.floor(this.z) + ' in ' + (dims[this.world.dim || 0] || 'this world') + '.');
     }
     return onDeath.apply(this, arguments);
@@ -488,6 +487,7 @@
     FF.length = j;
   }
   DL.Wishlist = { fireflies: () => FF, addFirefly: (x, y, z) => FF.push({ x, y, z, px: x, py: y, pz: z, vx: 0, vy: 0, vz: 0, age: 30, life: 600, phase: rnd() * 6.28, rate: 0.06 + rnd() * 0.06 }) };
+  Object.assign(DL.Wishlist, { mount, dismount, saddled, seatPos, resetMapColors: () => { colorOf = null; } });
   const PX = 1 / 16;
   RP.renderFireflies = function (world, pt) {
     if (!FF.length || DL.game.world !== world) return;

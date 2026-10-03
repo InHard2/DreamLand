@@ -2,6 +2,7 @@
  * DreamLand - WebGL renderer.
  */
 (function () {
+  const AR = (window.DL && window.DL.S && window.DL.S.ATLAS_ROWS) || 16; // atlas rows (16 columns)
   const DL = window.DL;
   const S = DL.S, B = S.B, M4 = DL.M4;
 
@@ -22,7 +23,7 @@ void main(){
       float ph = W.x * 0.7 + W.z * 0.5 + W.y * 0.3;
       wp.x += sin(uTime * 1.7 + ph) * 0.03; wp.z += cos(uTime * 1.3 + ph * 1.3) * 0.03; wp.y += sin(uTime * 2.1 + ph) * 0.01;
     } else if (fl == 2.0) {
-      float top = 1.0 - fract(aUV.y * 16.0 + 0.0001);
+      float top = 1.0 - fract(aUV.y * 32.0 + 0.0001);
       float ph = W.x * 0.9 + W.z * 0.6;
       wp.x += sin(uTime * 2.0 + ph) * 0.07 * top; wp.z += cos(uTime * 1.6 + ph) * 0.05 * top;
     } else if (fl == 3.0 && fract(lp.y) > 0.02) {
@@ -185,7 +186,7 @@ void main(){
     this.terrainTex = this.texture(DL.Tex.terrain);
     this.itemsTex = this.texture(DL.Tex.items);
     this.dirtTex = this.texture(DL.Tex.gui.dirt, true);
-    this.itemsData = DL.Tex.items.getContext('2d').getImageData(0, 0, 256, 256).data;
+    this.itemsData = DL.Tex.items.getContext('2d').getImageData(0, 0, DL.Tex.items.width, DL.Tex.items.height).data;
     this.skinTex = {};
     for (const k in DL.Models.skins) this.skinTex[k] = this.texture(DL.Models.skins[k]);
     this.modelMeshes = {};
@@ -683,27 +684,32 @@ void main(){
     const key = (terrain ? 't' : 'i') + stack.id;
     let m = this.itemMeshCache.get(key);
     if (m) return m;
-    let px, tile;
-    if (terrain) { tile = S.blocks[d.block].icon; px = DL.Tex.tileData[S.TILE_NAMES[tile]]; }
-    else {
+    let px, tile, R;
+    if (terrain) {
+      tile = S.blocks[d.block].icon;
+      const hi = DL.Tex.tilePixels ? DL.Tex.tilePixels(tile) : null;
+      if (hi) { px = hi.data; R = hi.res; } else { px = DL.Tex.tileData[S.TILE_NAMES[tile]]; R = 16; }
+    } else {
       tile = DL.Tex.itemTile(d.icon || d.name);
-      px = new Uint8ClampedArray(1024);
-      const tx = (tile & 15) * 16, ty = (tile >> 4) * 16;
-      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) for (let c = 0; c < 4; c++) px[(y * 16 + x) * 4 + c] = this.itemsData[((ty + y) * 256 + tx + x) * 4 + c];
+      R = DL.Tex.IRES || 16;
+      const IW = DL.Tex.items.width;
+      px = new Uint8ClampedArray(R * R * 4);
+      const tx = (tile & 15) * R, ty = (tile >> 4) * R;
+      for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) for (let c = 0; c < 4; c++) px[(y * R + x) * 4 + c] = this.itemsData[((ty + y) * IW + tx + x) * 4 + c];
     }
-    const tu = (tile & 15) / 16, tv = (tile >> 4) / 16;
+    const tu = (tile & 15) / 16, tv = (tile >> 4) / AR;
     const v = [];
     const depth = 1 / 16;
-    const U = (x) => tu + x / 256, V = (y) => tv + y / 256;
+    const U = (x) => tu + x / (16 * R), V = (y) => tv + y / (AR * R);
     const quad = (p, uv, n) => { for (const k of [0, 1, 2, 0, 2, 3]) v.push(p[k][0], p[k][1], p[k][2], uv[k][0], uv[k][1], n[0], n[1], n[2]); };
     // front/back full quads (x: 0..1 left->right, y: 1..0 top->bottom)
-    quad([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], [[U(0), V(16)], [U(16), V(16)], [U(16), V(0)], [U(0), V(0)]], [0, 0, 1]);
-    quad([[1, 0, -depth], [0, 0, -depth], [0, 1, -depth], [1, 1, -depth]], [[U(16), V(16)], [U(0), V(16)], [U(0), V(0)], [U(16), V(0)]], [0, 0, -1]);
-    const a = (x, y) => x >= 0 && y >= 0 && x < 16 && y < 16 && px[(y * 16 + x) * 4 + 3] > 20;
+    quad([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], [[U(0), V(R)], [U(R), V(R)], [U(R), V(0)], [U(0), V(0)]], [0, 0, 1]);
+    quad([[1, 0, -depth], [0, 0, -depth], [0, 1, -depth], [1, 1, -depth]], [[U(R), V(R)], [U(0), V(R)], [U(0), V(0)], [U(R), V(0)]], [0, 0, -1]);
+    const a = (x, y) => x >= 0 && y >= 0 && x < R && y < R && px[(y * R + x) * 4 + 3] > 20;
     const e = 0.001;
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
       if (!a(x, y)) continue;
-      const x0 = x / 16, x1 = (x + 1) / 16, y0 = 1 - (y + 1) / 16, y1 = 1 - y / 16;
+      const x0 = x / R, x1 = (x + 1) / R, y0 = 1 - (y + 1) / R, y1 = 1 - y / R;
       const uv = [[U(x + e), V(y + 1 - e)], [U(x + 1 - e), V(y + 1 - e)], [U(x + 1 - e), V(y + e)], [U(x + e), V(y + e)]];
       if (!a(x - 1, y)) quad([[x0, y0, -depth], [x0, y0, 0], [x0, y1, 0], [x0, y1, -depth]], uv, [-1, 0, 0]);
       if (!a(x + 1, y)) quad([[x1, y0, 0], [x1, y0, -depth], [x1, y1, -depth], [x1, y1, 0]], uv, [1, 0, 0]);
@@ -1057,43 +1063,51 @@ void main(){
       this.drawItemMesh(stack, m, light);
     }
   };
-  Renderer.prototype.drawHeldThirdPerson = function (p, pt, model, light, stack, poseAs) {
+  /* Third-person hand transforms, as in Minecraft's item models (rotation in degrees, translation in pixels). */
+  const HAND_TF = {
+    handheld: [[0, -90, 55], [0, 4, 0.5], 0.85],
+    rod: [[0, 90, 55], [0, 4, 2.5], 0.85],
+    bow: [[-80, 260, -40], [-1, -2, 2.5], 0.9],
+    generated: [[0, 0, 0], [0, 3, 1], 0.55],
+    block: [[75, 45, 0], [0, 2.5, 0], 0.375]
+  };
+  Renderer.HAND_TF = HAND_TF;
+  const HANDHELD = new Set([280, 352, 369, 442]);
+  Renderer.prototype.handTransform = function (d) {
+    if (d.id === 261) return HAND_TF.bow;
+    if (d.id === 346 || d.handTf === 'rod') return HAND_TF.rod;
+    if (d.isBlock && !d.flat) return HAND_TF.block;
+    if (d.handTf && HAND_TF[d.handTf]) return HAND_TF[d.handTf];
+    if (d.tool || HANDHELD.has(d.id)) return HAND_TF.handheld;
+    return HAND_TF.generated;
+  };
+  Renderer.prototype.drawHeldThirdPerson = function (p, pt, model, light, stack, poseAs, leftHand) {
     const m = M4.create();
     M4.copy(m, model);
-    // back into classic model space (blocks, y down)
+    // back into Minecraft's model space (y down, 1 unit = 1 block)
     M4.translate(m, m, 0, -1.5, 0);
     M4.scale(m, m, -1, -1, 1);
     M4.translate(m, m, 0, -1.5, 0);
     const pose = DL.Models.pose(poseAs || 'player', p, pt);
-    const ra = pose.rarm;
-    M4.translate(m, m, (-5 + (ra[3] || 0)) / 16, (2 + (ra[4] || 0)) / 16, (ra[5] || 0) / 16);
-    M4.rotateZ(m, m, ra[2]); M4.rotateY(m, m, ra[1]); M4.rotateX(m, m, ra[0]);
-    M4.translate(m, m, -0.0625, 0.4375, 0.0625);
-    const d = DL.Items.get(stack.id);
+    const ra = (leftHand ? pose.larm : pose.rarm) || [0, 0, 0];
+    const side = leftHand ? -1 : 1;
+    M4.translate(m, m, (-5 * side + (ra[3] || 0)) / 16, (2 + (ra[4] || 0)) / 16, (ra[5] || 0) / 16);
+    M4.rotateZ(m, m, ra[2] || 0); M4.rotateY(m, m, ra[1] || 0); M4.rotateX(m, m, ra[0] || 0);
+    // ItemInHandLayer: from the shoulder down to the fist
     const deg = Math.PI / 180;
-    if (d.id === 261) {
-      const k = 0.625;
-      M4.translate(m, m, 0, 0.125, 0.3125);
-      M4.rotateY(m, m, -20 * deg);
-      M4.scale(m, m, k, -k, k);
-      M4.rotateX(m, m, -100 * deg); M4.rotateY(m, m, 45 * deg);
-    } else if (d.isBlock && !d.flat) {
-      const k = 0.5 * 0.75;
-      M4.translate(m, m, 0, 0.1875, -0.3125);
-      M4.rotateX(m, m, 20 * deg); M4.rotateY(m, m, 45 * deg);
-      M4.scale(m, m, k, -k, k);
-    } else if (d.tool || FULL3D.has(d.id)) {
-      const k = 0.625;
-      M4.translate(m, m, 0, 0.1875, 0);
-      M4.scale(m, m, k, -k, k);
-      M4.rotateX(m, m, -100 * deg); M4.rotateY(m, m, 45 * deg);
-    } else {
-      const k = 0.375;
-      M4.translate(m, m, 0.25, 0.1875, -0.1875);
-      M4.scale(m, m, k, k, k);
-      M4.rotateZ(m, m, 60 * deg); M4.rotateX(m, m, -90 * deg); M4.rotateZ(m, m, 20 * deg);
-    }
-    this.drawItemClassic(stack, m, light);
+    M4.rotateX(m, m, -90 * deg);
+    M4.rotateY(m, m, Math.PI);
+    M4.translate(m, m, side / 16, 0.125, -0.625);
+    const d = DL.Items.get(stack.id);
+    if (!d) return;
+    const tf = this.handTransform(d);
+    const [rot, tr, sc] = tf;
+    M4.translate(m, m, side * tr[0] / 16, tr[1] / 16, tr[2] / 16);
+    M4.rotateX(m, m, rot[0] * deg); M4.rotateY(m, m, side * rot[1] * deg); M4.rotateZ(m, m, side * rot[2] * deg);
+    M4.scale(m, m, sc, sc, sc);
+    M4.translate(m, m, -0.5, -0.5, -0.5);
+    if (d.isBlock && !d.flat) this.drawBlockMesh(d.block, S.FRONT_BLOCKS[d.block] ? 2 : 0, m, light);
+    else { M4.translate(m, m, 0, 0, 8.5 / 16); this.drawItemMesh(stack, m, light); }
   };
 
   /* ---------------------------------------------------------------- */
@@ -1145,11 +1159,11 @@ void main(){
   };
   Renderer.prototype.billboardQuad = function (x, y, z, size, right, up, tile, br, ox, oy, center) {
     const h = size / 2;
-    const tu = (tile & 15) / 16, tv = (tile >> 4) / 16, e = 0.0005;
+    const tu = (tile & 15) / 16, tv = (tile >> 4) / AR, e = 0.0005;
     ox = ox || 0; oy = oy || 0;
     const cx = x + right[0] * ox + up[0] * oy, cy = y + right[1] * ox + up[1] * oy + (center ? 0 : 0), cz = z + right[2] * ox + up[2] * oy;
     const p = (a, b) => [cx + right[0] * a + up[0] * b, cy + right[1] * a + up[1] * b, cz + right[2] * a + up[2] * b];
-    this.quadV([p(-h, -h), p(h, -h), p(h, h), p(-h, h)], [[tu + e, tv + 1 / 16 - e], [tu + 1 / 16 - e, tv + 1 / 16 - e], [tu + 1 / 16 - e, tv + e], [tu + e, tv + e]], [br, br, br, 1]);
+    this.quadV([p(-h, -h), p(h, -h), p(h, h), p(-h, h)], [[tu + e, tv + 1 / AR - e], [tu + 1 / 16 - e, tv + 1 / AR - e], [tu + 1 / 16 - e, tv + e], [tu + e, tv + e]], [br, br, br, 1]);
   };
 
   Renderer.prototype.addParticle = function (p) { if (this.particles.length < 4000) this.particles.push(p); };
@@ -1204,8 +1218,7 @@ void main(){
           if (p.type === 'explosion' || p.type === 'smoke' || p.type === 'poof') size = p.size * Math.min(1, (p.age + pt) / p.life * 32);
         } else {
           const tile = p.tile;
-          const tu = (tile & 15) * 16, tv = (tile >> 4) * 16;
-          u0 = (tu + p.sub[0]) / 256; v0 = (tv + p.sub[1]) / 256; u1 = u0 + 4 / 256; v1 = v0 + 4 / 256;
+          u0 = ((tile & 15) + p.sub[0] / 16) / 16; v0 = ((tile >> 4) + p.sub[1] / 16) / AR; u1 = u0 + 4 / 256; v1 = v0 + 4 / (16 * AR);
         }
         let br = 1;
         if (!p.fullBright) {
@@ -1250,7 +1263,7 @@ void main(){
     const tile = S.T['destroy_' + Math.max(0, Math.min(9, stage))];
     const e = 0.004;
     const b = [box[0] - e - cam.x, box[1] - e - cam.y, box[2] - e - cam.z, box[3] + e - cam.x, box[4] + e - cam.y, box[5] + e - cam.z];
-    const tu = (tile & 15) / 16, tv = (tile >> 4) / 16;
+    const tu = (tile & 15) / 16, tv = (tile >> 4) / AR;
     this.begin();
     for (let f = 0; f < 6; f++) {
       const fv = S.FACE_VERTS[f];
@@ -1258,7 +1271,7 @@ void main(){
       for (let v = 0; v < 4; v++) {
         const c = fv[v];
         pts.push([c[0] ? b[3] : b[0], c[1] ? b[4] : b[1], c[2] ? b[5] : b[2]]);
-        uvs.push([tu + S.FACE_UV[v][0] / 16, tv + S.FACE_UV[v][1] / 16]);
+        uvs.push([tu + S.FACE_UV[v][0] / 16, tv + S.FACE_UV[v][1] / AR]);
       }
       this.quadV(pts, uvs, [0.5, 0.5, 0.5, 1]);
     }
@@ -1302,6 +1315,7 @@ void main(){
     const sq = Math.sqrt(sw);
     if (stack) {
       const k = 0.8;
+      if (p.eating && this.eatTransform) this.eatTransform(p, pt, m);
       M4.translate(m, m, -Math.sin(sq * Math.PI) * 0.4, Math.sin(sq * Math.PI * 2) * 0.2, -Math.sin(sw * Math.PI) * 0.2);
       M4.translate(m, m, 0.7 * k, -0.65 * k - (1 - equip) * 0.6, -0.9 * k);
       M4.rotateY(m, m, 45 * deg);
@@ -1350,10 +1364,10 @@ void main(){
     const gl = this.gl;
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    const tu = (tile & 15) / 16, tv = (tile >> 4) / 16;
+    const tu = (tile & 15) / 16, tv = (tile >> 4) / AR;
     this.begin();
     const s = Math.max(this.w, this.h);
-    this.quadV([[0, s, 0], [s, s, 0], [s, 0, 0], [0, 0, 0]], [[tu, tv + 1 / 16], [tu + 1 / 16, tv + 1 / 16], [tu + 1 / 16, tv], [tu, tv]], [br, br, br, alpha]);
+    this.quadV([[0, s, 0], [s, s, 0], [s, 0, 0], [0, 0, 0]], [[tu, tv + 1 / AR], [tu + 1 / 16, tv + 1 / AR], [tu + 1 / 16, tv], [tu, tv]], [br, br, br, alpha]);
     const o = this.ortho();
     this.flush('quads', { mvp: o, mv: o, tex: this.terrainTex });
     gl.disable(gl.BLEND);
@@ -1550,8 +1564,11 @@ void main(){
   Renderer.prototype.updateAnimations = function () {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
+    const R = DL.Tex.RES || 16;
     for (const a of DL.Tex.anims) {
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, (a.tile & 15) * 16, (a.tile >> 4) * 16, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(a.fx.data.buffer));
+      const f = DL.Tex.animFrame ? DL.Tex.animFrame(a) : { data: a.fx.data, res: 16 };
+      if (!f) continue;
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, (a.tile & 15) * R, (a.tile >> 4) * R, f.res, f.res, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(f.data.buffer, f.data.byteOffset, f.res * f.res * 4));
     }
   };
 })();

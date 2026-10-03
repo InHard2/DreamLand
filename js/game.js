@@ -413,7 +413,7 @@
       if (type === 'touchhotbar') { this.touchHotbar(d); return; }
       if (type === 'devicechange' || type === 'gamepad') {
         if (G.screen && G.screen.layout && d.connected !== false) { if (G.screen.focus < 0 && G.screen.widgets) G.screen.focus = G.screen.widgets.findIndex(w => !w.hidden && w.enabled !== false); }
-        if (d.connected) this.chatMessage('Controller connected: ' + (d.id || '').slice(0, 40));
+        if (d.connected) G.notice('Controller connected: ' + (d.id || 'gamepad').replace(/\s*\(.*$/, '').slice(0, 48));
       }
     }
 
@@ -523,11 +523,11 @@
       const p = this.player, w = this.world;
       const msg = (m) => this.chatMessage(m);
       switch (cmd) {
-        case 'help': msg('§eCommands: /time set <day|night|n>, /give <item> [n], /tp x y z, /seed, /kill, /heal, /summon <mob>, /difficulty <n>, /clear, /spawnpoint, /items, /gamemode, /dimension <overworld|nether|end|aether>, /locate <structure>'); break;
+        case 'help': msg('§eCommands: /time set <day|night|n>, /give <item> [n], /tp x y z, /seed, /kill, /heal, /summon <mob>, /difficulty <n>, /clear, /spawnpoint, /items, /gamemode, /dimension <overworld|nether|end|aether|sift>, /locate <structure>'); break;
         case 'dimension': case 'dim': {
-          const names = { overworld: 0, nether: 1, end: 2, the_end: 2, aether: 3 };
+          const names = { overworld: 0, nether: 1, end: 2, the_end: 2, aether: 3, sift: 4, the_sift: 4 };
           const d = names[(args[0] || '').toLowerCase()];
-          if (d === undefined) { msg('§cUsage: /dimension <overworld|nether|end|aether>'); break; }
+          if (d === undefined) { msg('§cUsage: /dimension <overworld|nether|end|aether|sift>'); break; }
           this.travel(d, { type: 'command' });
           break;
         }
@@ -753,7 +753,7 @@
       this._jumpWas = p.jumping;
       if (!p.creative) p.flying = false;
       p.sneaking = !scr && this.sneakHeld && !p.inWater;
-      const wantSprint = (!scr || scr instanceof G.ChatScreen) && this.sprintHeld && p.moveForward > 0.5 && !p.sneaking && !p.inWater && !p.inLava;
+      const wantSprint = (!scr || scr instanceof G.ChatScreen) && this.sprintHeld && p.moveForward > 0.5 && !p.sneaking && !p.inLava && (p.creative || p.food === undefined || p.food > 6);
       if (wantSprint && !p.sprinting && !p.collidedH) p.sprinting = true;
       else if (p.sprinting && (!wantSprint || (p.collidedH && !p.flying))) p.sprinting = false;
       p.sprintFly = p.sprinting && p.flying;
@@ -1138,6 +1138,8 @@
           case 'splash': p = { tex: 'particle', cellX: 1 + Math.floor(Math.random() * 3), cellY: 1, frame: 0, vx: (Math.random() * 2 - 1) * 0.1, vy: Math.random() * 0.2 + 0.1, vz: (Math.random() * 2 - 1) * 0.1, gravity: 0.04, drag: 0.98, life: Math.floor(8 / (Math.random() * 0.8 + 0.2)), size: 0.1, r: 1, g: 1, b: 1, collide: true }; break;
           case 'lava': p = { tex: 'particle', cellX: 1, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.08, vy: Math.random() * 0.2 + 0.05, vz: (Math.random() - 0.5) * 0.08, gravity: 0.03, drag: 0.999, life: Math.floor(16 / (Math.random() * 0.8 + 0.2)), size: 0.1 + Math.random() * 0.05, r: 1, g: 1, b: 1, fullBright: true, collide: true }; break;
           case 'portal': { const f = Math.random() * 0.6 + 0.4; p = { tex: 'particle', cellX: 0, cellY: 0, anim: true, vx: (Math.random() - 0.5) * 0.08, vy: (Math.random() - 0.3) * 0.08, vz: (Math.random() - 0.5) * 0.08, gravity: 0, drag: 0.92, life: 20 + Math.floor(Math.random() * 20), size: 0.07 + Math.random() * 0.05, r: f * 0.9, g: f * 0.3, b: f, fullBright: true }; break; }
+          case 'soul': { const k = Math.random(); p = { tex: 'particle', cellX: 0, cellY: 0, anim: true, vx: (Math.random() - 0.5) * 0.02, vy: 0.012 + Math.random() * 0.02, vz: (Math.random() - 0.5) * 0.02, gravity: -0.0008, drag: 0.98, life: 30 + Math.floor(Math.random() * 30), size: 0.08 + Math.random() * 0.06, r: 0.35 + k * 0.4, g: 0.95, b: 0.9 - k * 0.2, fullBright: true }; break; }
+          case 'ichor': { const h = Math.random(); p = { tex: 'particle', cellX: 2, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.05, vy: 0.05 + Math.random() * 0.08, vz: (Math.random() - 0.5) * 0.05, gravity: 0.01, drag: 0.94, life: 14 + Math.floor(Math.random() * 10), size: 0.08, r: 0.6 + 0.4 * Math.sin(h * 6.3), g: 0.6 + 0.4 * Math.sin(h * 6.3 + 2.1), b: 0.6 + 0.4 * Math.sin(h * 6.3 + 4.2), fullBright: true }; break; }
           case 'heart': case 'happy': p = { tex: 'particle', cellX: 2, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.05, vy: 0.05 + Math.random() * 0.05, vz: (Math.random() - 0.5) * 0.05, gravity: 0, drag: 0.9, life: 20, size: 0.12, r: type === 'heart' ? 1 : 0.4, g: type === 'heart' ? 0.3 : 1, b: 0.4, fullBright: true }; break;
           case 'crit': p = { tex: 'particle', cellX: 2, cellY: 3, frame: 0, vx: (Math.random() - 0.5) * 0.3, vy: Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.3, gravity: 0.02, drag: 0.7, life: 8, size: 0.08, r: 1, g: 1, b: 1 }; break;
           case 'itemcrack': case 'egg': case 'snowball': {
@@ -1214,6 +1216,7 @@
       G.begin();
       if (showWorld && !this.hideGui && this.player) G.drawHUD(this, pt);
       if (scr) scr.draw(G.mouse.x, G.mouse.y, pt);
+      if (G.notices.length) G.drawNotices();
       if (this.fadeIn > 0) { G.rect(0, 0, G.W, G.H, 'rgba(0,0,0,' + Math.min(1, this.fadeIn) + ')'); this.fadeIn -= dt * 2; }
       // player preview in inventory
       if (scr && scr.preview && scr.previewLook) {
@@ -1319,9 +1322,9 @@
         r.begin();
         for (const side of [0, 1]) {
           const tile = side ? S.T.fire_2 : S.T.fire;
-          const tu = (tile & 15) / 16, tv = (tile >> 4) / 16;
+          const tu = (tile & 15) / 16, tv = (tile >> 4) / S.ATLAS_ROWS;
           const x0 = side ? r.w * 0.6 : -r.w * 0.05, x1 = x0 + r.w * 0.45;
-          r.quadV([[x0, r.h, 0], [x1, r.h, 0], [x1, r.h - k * 1.6, 0], [x0, r.h - k * 1.6, 0]], [[tu, tv + 1 / 16], [tu + 1 / 16, tv + 1 / 16], [tu + 1 / 16, tv], [tu, tv]], [1, 1, 1, 0.9]);
+          r.quadV([[x0, r.h, 0], [x1, r.h, 0], [x1, r.h - k * 1.6, 0], [x0, r.h - k * 1.6, 0]], [[tu, tv + 1 / S.ATLAS_ROWS], [tu + 1 / 16, tv + 1 / S.ATLAS_ROWS], [tu + 1 / 16, tv], [tu, tv]], [1, 1, 1, 0.9]);
         }
         const o = r.ortho();
         r.flush('quads', { mvp: o, mv: o, tex: r.terrainTex, alphaTest: 0.1 });

@@ -53,11 +53,18 @@ function DL_SHARED_FACTORY() {
     'dead_bush', 'sunflower', 'cornflower', 'allium', 'orange_tulip', 'pink_tulip', 'lily_of_the_valley', 'pink_petals',
     'bamboo', 'lily_pad', 'pointed_dripstone', 'mycelium_top', 'mycelium_side', 'podzol_top', 'podzol_side', 'coarse_dirt',
     'moss_block', 'red_mushroom_block', 'brown_mushroom_block', 'mushroom_stem', 'packed_ice', 'blue_ice', 'calcite', 'dripstone_block',
-    'deepslate', 'deepslate_top', 'sculk', 'sculk_sensor_top', 'sculk_sensor_side', 'azalea_leaves', 'flowering_azalea_leaves', 'dark_oak_leaves'
+    'deepslate', 'deepslate_top', 'sculk', 'sculk_sensor_top', 'sculk_sensor_side', 'azalea_leaves', 'flowering_azalea_leaves', 'dark_oak_leaves',
+    // the Sift
+    'sift_stone', 'sift_stone_bricks', 'sift_turf_top', 'sift_turf_side', 'red_sculk', 'ichor', 'ichor_flow', 'carapace_sand',
+    'carapace_wall', 'fossil_side', 'fossil_top', 'soul_block', 'tidebloom', 'singing_bell', 'sift_grass', 'lullaby_moss',
+    'lullaby_moss_side', 'sift_log_side', 'sift_log_top', 'sift_leaves', 'sift_rift', 'sift_planks', 'echo_bulb', 'carapace_rock',
+    'drift_crystal', 'chiseled_sift_stone'
   ];
   const T = {};
   for (let i = 0; i < TILE_NAMES.length; i++) T[TILE_NAMES[i]] = i;
   S.TILE_NAMES = TILE_NAMES;
+  const AROWS = 32; // the atlases are 16 tiles wide and 32 tiles tall
+  S.ATLAS_ROWS = AROWS;
   S.T = T;
 
   /* ------------------------------------------------------------------ */
@@ -294,6 +301,28 @@ function DL_SHARED_FACTORY() {
   def(194, 'azalea_leaves', LEAF({ tex: 'azalea_leaves' }));
   def(195, 'flowering_azalea_leaves', LEAF({ tex: 'flowering_azalea_leaves' }));
   def(196, 'dark_oak_leaves', LEAF({ tex: 'dark_oak_leaves' }));
+  /* ---- the Sift ---- */
+  def(241, 'sift_stone', PK({ tex: 'sift_stone', hardness: 1.5 }));
+  def(242, 'sift_stone_bricks', PK({ tex: 'sift_stone_bricks', hardness: 1.5 }));
+  def(243, 'sift_turf', { tex: { top: 'sift_turf_top', bottom: 'sift_stone', side: 'sift_turf_side' }, hardness: 0.6, tool: 'shovel', sound: 'grass' });
+  def(244, 'red_sculk', { tex: 'red_sculk', hardness: 0.2, tool: 'hoe', sound: 'cloth', emit: 4 });
+  def(245, 'ichor', { tex: { all: 'ichor', side: 'ichor_flow' }, render: R.LIQUID, solid: false, layer: 1, lightOpacity: 2, emit: 10, selfCull: true, replaceable: true, liquid: true, hardness: 100, drop: 0 });
+  def(246, 'carapace_sand', { tex: 'carapace_sand', hardness: 0.5, tool: 'shovel', sound: 'sand' });
+  def(247, 'carapace_wall', PK({ tex: 'carapace_wall', hardness: 3, sound: 'glass', emit: 6 }));
+  def(248, 'fossil_block', PK({ tex: { top: 'fossil_top', bottom: 'fossil_top', side: 'fossil_side' }, hardness: 2 }));
+  def(249, 'soul_block', { tex: 'soul_block', hardness: 1, tool: 'pickaxe', sound: 'glass', emit: 15 });
+  def(250, 'tidebloom', PLANT({ tex: 'tidebloom', emit: 10, flammable: false }));
+  def(251, 'singing_bell', PLANT({ tex: 'singing_bell', emit: 7, flammable: false }));
+  def(252, 'sift_grass', PLANT({ tex: 'sift_grass', replaceable: true, drop: 0 }));
+  def(253, 'lullaby_moss', { tex: { top: 'lullaby_moss', bottom: 'sift_stone', side: 'lullaby_moss_side' }, hardness: 0.6, tool: 'shovel', sound: 'grass' });
+  def(254, 'sift_log', WOOD({ tex: { top: 'sift_log_top', bottom: 'sift_log_top', side: 'sift_log_side' }, flammable: false }));
+  def(255, 'sift_leaves', LEAF({ tex: 'sift_leaves', emit: 6, flammable: false }));
+  def(123, 'sift_rift', { tex: 'sift_rift', render: R.PORTAL, solid: false, layer: 1, emit: 12, hardness: -1, drop: 0, sound: 'glass' });
+  def(124, 'sift_planks', WOOD({ tex: 'sift_planks', flammable: false }));
+  def(125, 'echo_bulb', { tex: 'echo_bulb', hardness: 0.3, sound: 'glass', emit: 14 });
+  def(126, 'carapace_rock', PK({ tex: 'carapace_rock', hardness: 1.2 }));
+  def(127, 'drift_crystal', PLANT({ tex: 'drift_crystal', emit: 9, flammable: false, sound: 'glass', hardness: 0.3 }));
+  def(209, 'chiseled_sift_stone', PK({ tex: 'chiseled_sift_stone', hardness: 1.5, emit: 5 }));
   // non-cube "opaque" flags for clouds (def() forces opaque for cubes)
   OPAQUE[235] = OPAQUE[236] = 0; blocks[235].opaque = blocks[236].opaque = false;
   // Cubes you can see through must not hide their neighbours' faces (no X-ray).
@@ -302,14 +331,14 @@ function DL_SHARED_FACTORY() {
     if (d && d.render === R.CUBE && (d.cutout || d.layer === 1)) { d.opaque = false; OPAQUE[id] = 0; }
   }
   const LEAVES = new Uint8Array(256);
-  LEAVES[B.leaves] = LEAVES[B.skyroot_leaves] = LEAVES[B.golden_oak_leaves] = 1;
+  LEAVES[B.leaves] = LEAVES[B.skyroot_leaves] = LEAVES[B.golden_oak_leaves] = LEAVES[B.sift_leaves] = 1;
   for (const n of ['birch', 'spruce', 'acacia', 'jungle', 'mangrove', 'cherry', 'pale_oak', 'azalea', 'flowering_azalea', 'dark_oak']) LEAVES[B[n + '_leaves']] = 1;
   const LOGS = new Uint8Array(256);
-  for (const n of ['log', 'dark_log', 'birch_log', 'spruce_log', 'acacia_log', 'jungle_log', 'mangrove_log', 'cherry_log', 'pale_oak_log', 'skyroot_log', 'golden_oak_log']) LOGS[B[n]] = 1;
+  for (const n of ['log', 'dark_log', 'birch_log', 'spruce_log', 'acacia_log', 'jungle_log', 'mangrove_log', 'cherry_log', 'pale_oak_log', 'skyroot_log', 'golden_oak_log', 'sift_log']) LOGS[B[n]] = 1;
   S.LOGS = LOGS;
   /** Ground a little plant can grow on. */
   const SOIL = new Uint8Array(256);
-  for (const n of ['grass', 'dirt', 'podzol', 'coarse_dirt', 'mycelium', 'moss_block', 'mud', 'pale_moss_block', 'farmland']) SOIL[B[n]] = 1;
+  for (const n of ['grass', 'dirt', 'podzol', 'coarse_dirt', 'mycelium', 'moss_block', 'mud', 'pale_moss_block', 'farmland', 'sift_turf', 'lullaby_moss']) SOIL[B[n]] = 1;
   S.SOIL = SOIL;
   S.LEAVES = LEAVES;
 
@@ -580,6 +609,7 @@ function DL_SHARED_FACTORY() {
     if (this.dim === 1) return this.genNether(cx, cz);
     if (this.dim === 2) return this.genEnd(cx, cz);
     if (this.dim === 3) return this.genAether(cx, cz);
+    if (this.dim === 4) return this.genSift(cx, cz);
     const blocks = new Uint8Array(16 * 16 * CH);
     const meta = new Uint8Array(16 * 16 * CH);
     const biomes = new Uint8Array(256);
@@ -832,6 +862,58 @@ function DL_SHARED_FACTORY() {
     return { blocks, meta, biomes };
   };
 
+  /* The Sift: pastel floating islands over a sea of ichor.
+     Column biomes: 0 Singer's Meadow, 1 the Carapace, 2 Lullaby Hills, 3 Echo Den. */
+  Generator.prototype.siftBiome = function (wx, wz) {
+    const a = this.d1.sample2(wx / 320, wz / 320), b = this.d2.sample2(wz / 270 + 40, wx / 270 - 17);
+    let bio = a > 0.09 ? 1 : b > 0.04 ? 2 : 0;
+    if (bio !== 1 && this.d3.sample2(wx / 130 + 9, wz / 130 - 3) > 0.15) bio = 3;
+    return bio;
+  };
+  Generator.prototype.genSift = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    const bx = cx * 16, bz = cz * 16;
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) biomes[(z << 4) | x] = this.siftBiome(bx + x, bz + z);
+    this.densityFill(cx, cz, (x, y, z) => {
+      // Lullaby Hills rise higher and steeper; the Carapace is flatter
+      const hill = Math.max(0, this.d2.sample2(z / 270 + 40, x / 270 - 17) - 0.03) * 4;
+      const flat = Math.max(0, this.d1.sample2(x / 320, z / 320) - 0.06) * 4;
+      const n = this.d1.sample(x / 96, y / (44 + hill * 30), z / 96) * 3 + this.d2.sample(x / 30, y / 20, z / 30) * (1 - flat * 0.4) + this.d4.sample(x / 12, y / 10, z / 12) * 0.25;
+      const b = (y - 70 - hill * 8) / (32 + hill * 14);
+      // little islets high up, drifting in the sky
+      const islet = this.d3.sample(x / 26, y / 9, z / 26) * 2.4 - 1.25 - Math.abs(y - 106) / 9;
+      return Math.max(n + 0.1 - b * b * 1.7, islet);
+    }, (x, y, z, v) => { if (v > 0 && y > 16 && y < 124) blocks[(y << 8) | (z << 4) | x] = B.sift_stone; });
+    const rng = this.rng;
+    rng.setSeed(hash2(this.seed ^ 0x51f7, cx, cz));
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const wx = bx + x, wz = bz + z, bio = biomes[(z << 4) | x];
+      // the deep gashes of Lullaby Hills
+      if (bio === 2 && Math.abs(this.d3.sample2(wx / 70, wz / 70)) < 0.022) for (let y = 18; y < 124; y++) blocks[(y << 8) | (z << 4) | x] = 0;
+      // hollow islands full of echoes
+      if (bio === 3) for (let y = 24; y < 110; y++) {
+        const i = (y << 8) | (z << 4) | x;
+        if (blocks[i] && blocks[i + 256 * 3] && this.d4.sample(wx / 14, y / 9, wz / 14) > 0.12) blocks[i] = 0;
+      }
+      // surfaces
+      let run = -1;
+      for (let y = CH - 2; y > 12; y--) {
+        const i = (y << 8) | (z << 4) | x;
+        if (blocks[i] !== B.sift_stone) { run = -1; continue; }
+        if (run === -1) {
+          blocks[i] = bio === 1 ? B.carapace_sand : bio === 2 ? B.lullaby_moss : B.sift_turf;
+          run = bio === 1 ? 3 + rng.nextInt(2) : 0;
+        } else if (run > 0) { blocks[i] = bio === 1 ? B.carapace_sand : B.sift_stone; run--; }
+        else if (bio === 1 && run === 0) { blocks[i] = B.carapace_rock; run = -2; }
+      }
+      // the ichor sea far below
+      blocks[(0 << 8) | (z << 4) | x] = B.bedrock;
+      for (let y = 1; y <= 2; y++) blocks[(y << 8) | (z << 4) | x] = B.sift_stone;
+      for (let y = 3; y <= 9; y++) blocks[(y << 8) | (z << 4) | x] = B.ichor;
+    }
+    return { blocks, meta, biomes };
+  };
+
   /** Top solid y per column (terrain only, used to place structures). */
   Generator.prototype.heightMap = function (cx, cz) {
     const r = this.generate(cx, cz, true);
@@ -1018,7 +1100,7 @@ function DL_SHARED_FACTORY() {
     const e = 0.00004;
     const uu = u < 0.001 ? e : u > 0.999 ? 1 - e : u;
     const vv = v < 0.001 ? e : v > 0.999 ? 1 - e : v;
-    return [(tx + uu) / 16, (ty + vv) / 16];
+    return [(tx + uu) / 16, (ty + vv) / AROWS];
   }
 
   /* Biome colours (grass, foliage, water) as multipliers of the plains colours our textures are painted in. */
@@ -1182,7 +1264,7 @@ function DL_SHARED_FACTORY() {
       const c = fv[v], uv = FACE_UV[v];
       const e = 0.00004;
       out.v(x + c[0], y + c[1], z + c[2],
-        (tx + (uv[0] ? 1 - e : e)) / 16, (ty + (uv[1] ? 1 - e : e)) / 16,
+        (tx + (uv[0] ? 1 - e : e)) / 16, (ty + (uv[1] ? 1 - e : e)) / AROWS,
         (sk[v] * 17 + 0.5) | 0, (bk[v] * 17 + 0.5) | 0, (sh[v] * 255 + 0.5) | 0, flags);
     }
   };
@@ -1224,7 +1306,7 @@ function DL_SHARED_FACTORY() {
       if (uvRot) { const t = u; u = 1 - w; w = t; }
       u = u < e ? e : u > 1 - e ? 1 - e : u;
       w = w < e ? e : w > 1 - e ? 1 - e : w;
-      out.v(x + px, y + py, z + pz, (tx + u) / 16, (ty + w) / 16,
+      out.v(x + px, y + py, z + pz, (tx + u) / 16, (ty + w) / AROWS,
         (s * 17 + 0.5) | 0, (k * 17 + 0.5) | 0, (shade * 255 + 0.5) | 0, flags);
     }
   };
@@ -1239,13 +1321,13 @@ function DL_SHARED_FACTORY() {
     const S_ = (s * 17 + 0.5) | 0, K_ = (k * 17 + 0.5) | 0, H_ = (shade * 255 + 0.5) | 0;
     for (let v = 0; v < 4; v++) {
       const p = pts[v];
-      out.v(p[0], p[1], p[2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / 16, S_, K_, H_, flags);
+      out.v(p[0], p[1], p[2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / AROWS, S_, K_, H_, flags);
     }
     if (oneSided) return;
     for (let v = 0; v < 4; v++) {
       const vv = [1, 0, 3, 2][v];
       const p = pts[vv];
-      out.v(p[0], p[1], p[2], (tx + uvs[vv][0]) / 16, (ty + uvs[vv][1]) / 16, S_, K_, H_, flags);
+      out.v(p[0], p[1], p[2], (tx + uvs[vv][0]) / 16, (ty + uvs[vv][1]) / AROWS, S_, K_, H_, flags);
     }
   };
 
@@ -1409,8 +1491,8 @@ function DL_SHARED_FACTORY() {
 
   Mesher.prototype.liquid = function (i, id, x, y, z) {
     const bl = this.bl, li = this.li, opq = this.opq;
-    const out = id === B.water ? this.trans : this.solid;
-    const lava = id === B.lava;
+    const out = LAYER[id] === 1 ? this.trans : this.solid;
+    const glow = LEMIT[id] > 0;
     const above = bl[i + P2];
     // corner heights: (x,z), (x+1,z), (x+1,z+1), (x,z+1)
     const h00 = this.fluidCornerHeight(i, id);
@@ -1418,10 +1500,10 @@ function DL_SHARED_FACTORY() {
     const h11 = this.fluidCornerHeight(i + 1 + P, id);
     const h01 = this.fluidCornerHeight(i + P, id);
     const flowing = this.me[i] !== 0;
-    const topTile = flowing ? (lava ? T.lava_flow : T.water_flow) : (lava ? T.lava : T.water);
-    const sideTile = lava ? T.lava_flow : T.water_flow;
-    const flags = lava ? 4 : 3;
-    const lvOf = (j) => { const l = li[j]; return lava ? [l >> 4, 15] : [l >> 4, l & 15]; };
+    const topTile = flowing ? TEX[id * 6 + 2] : TEX[id * 6 + 1];
+    const sideTile = TEX[id * 6 + 2];
+    const flags = id === B.water ? 3 : 4;
+    const lvOf = (j) => { const l = li[j]; return glow ? [l >> 4, 15] : [l >> 4, l & 15]; };
     const e = 0.001;
     if (above !== id) {
       const L = lvOf(i + P2);
@@ -1456,9 +1538,9 @@ function DL_SHARED_FACTORY() {
       const tx = sideTile & 15, ty = sideTile >> 4;
       const S_ = (L[0] * 17) | 0, K_ = (L[1] * 17) | 0, H_ = (FACE_SHADE[sd[0]] * 255) | 0;
       const uvs = [[0.001, 0.999], [0.999, 0.999], [0.999, 1 - hb * 0.998], [0.001, 1 - ha * 0.998]];
-      for (let v = 0; v < 4; v++) out.v(pts[v][0], pts[v][1], pts[v][2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / 16, S_, K_, H_, flags);
+      for (let v = 0; v < 4; v++) out.v(pts[v][0], pts[v][1], pts[v][2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / AROWS, S_, K_, H_, flags);
       // back face so it is visible from inside
-      for (const v of [1, 0, 3, 2]) out.v(pts[v][0], pts[v][1], pts[v][2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / 16, S_, K_, H_, flags);
+      for (const v of [1, 0, 3, 2]) out.v(pts[v][0], pts[v][1], pts[v][2], (tx + uvs[v][0]) / 16, (ty + uvs[v][1]) / AROWS, S_, K_, H_, flags);
     }
   };
 

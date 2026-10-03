@@ -93,7 +93,7 @@
     }
     return null;
   }
-  St.rollLoot = rollLoot;
+  St.rollLoot = rollLoot; St.LOOT = LOOT;
 
   /* ------------------------------------------------------------ */
   /* Builders: Overworld                                          */

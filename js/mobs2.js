@@ -545,7 +545,7 @@
       if (countItem(p, tr.want[0]) >= tr.want[1] && p.held && p.held.id === tr.want[0]) {
         takeItem(p, tr.want[0], tr.want[1]);
         const st = I().stack(tr.give[0], tr.give[1]);
-        if (!p.addItem || !p.addItem(st)) m.world.spawnItem(p.x, p.y + 0.5, p.z, st, false);
+        const left = p.addItem ? p.addItem(st) : st; if (left) m.world.spawnItem(p.x, p.y + 0.5, p.z, left, false);
         snd(m, 'villager', 1, 1.2); parts(m.world, 'happy', m.x, m.y + m.h + 0.2, m.z, 6, 0.4);
         game.chatMessage('§aTraded ' + tr.want[1] + ' ' + I().name(tr.want[0]) + ' for ' + tr.give[1] + ' ' + I().name(tr.give[0]));
         return true;
