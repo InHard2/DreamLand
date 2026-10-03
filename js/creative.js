@@ -329,6 +329,7 @@
     }
     mouseMove(x, y) {
       if (this._drag === 'bar') { this.dragBar(y); return; }
+      super.mouseMove(x, y);
       const td = this.game.touchDown;
       if (td && this.hasGrid() && In.lastDevice === 'touch') {
         if (!this._touchScroll || this._touchScroll.id !== td.id) this._touchScroll = { id: td.id, y0: td.y, s0: this.scroll, inGrid: td.x >= this.px && td.x < this.px + this.pw && td.y >= this.py + 16 && td.y < this.py + 108 };
@@ -339,12 +340,12 @@
         }
       }
     }
-    mouseUp() { this._drag = null; this._touchScroll = null; }
+    mouseUp(x, y) { this._drag = null; this._touchScroll = null; super.mouseUp(x, y); }
     textInput(v) {
       if (this.activeField === this.search) { this.search.value = v.slice(0, 30); this.refilter(); return; }
       super.textInput(v);
     }
-    wheel(d) { if (this.hasGrid()) this.scroll = Math.max(0, Math.min(this.maxScroll, this.scroll + d)); }
+    wheel(d) { if (this.hasGrid() && !(this.slotAt(G.mouse.x, G.mouse.y) || {}).inv) this.scroll = Math.max(0, Math.min(this.maxScroll, this.scroll + d)); else super.wheel(d); }
     padButton(b) {
       const P = In.GPB, tabs = this.visibleTabs;
       const i = tabs.findIndex(t => t.id === this.tab);

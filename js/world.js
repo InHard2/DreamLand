@@ -547,7 +547,9 @@
     this.pendingGen.add(k);
     const sk = this.slot + ':' + cx + ',' + cz;
     if (this.savedKeys.has(sk)) {
-      DL.Storage.getChunk(this.slot, cx, cz).then(async rec => {
+      // a save of this chunk may still be on its way to disk: read after it lands
+      const wait = (this._savePending && this._savePending.get(sk)) || Promise.resolve();
+      wait.then(() => DL.Storage.getChunk(this.slot, cx, cz)).then(async rec => {
         if (!this.pendingGen.has(k)) return;
         if (!rec) { this.savedKeys.delete(sk); this.pool.submit({ t: 'gen', cx, cz }); return; }
         try {
@@ -1671,18 +1673,64 @@
     c.needsSave = false;
     const sk = this.slot + ':' + c.cx + ',' + c.cz;
     this.savedKeys.add(sk);
-    const p = this.serializeChunk(c, ents).then(rec => DL.Storage.putChunk(this.slot, c.cx, c.cz, rec));
-    this._saving = (this._saving || Promise.resolve()).then(() => p);
+    // saves finish out of order (compression is async): only the newest one of a chunk is written
+    const latest = this._saveLatest || (this._saveLatest = new Map());
+    const pending = this._savePending || (this._savePending = new Map());
+    const seq = this._saveSeq = (this._saveSeq || 0) + 1;
+    latest.set(sk, seq);
+    const p = this.serializeChunk(c, ents).then(rec => {
+      if (latest.get(sk) === seq) return DL.Storage.putChunk(this.slot, c.cx, c.cz, rec);
+    }).catch(e => console.warn('save failed', c.cx, c.cz, e)).then(() => {
+      if (latest.get(sk) === seq) { latest.delete(sk); pending.delete(sk); }
+    });
+    pending.set(sk, p);
     return p;
   };
-  World.prototype.saveAll = function () {
-    const ps = [];
-    for (const c of this.chunks.values()) {
-      if (!c.generated || !c.lit) { if (c.needsSave && c.generated) ps.push(this.saveChunk(c)); continue; }
-      const ents = this.collectChunkEntities ? this.collectChunkEntities(c) : [];
-      if (c.needsSave || ents.length) ps.push(this.saveChunk(c, ents));
+  /** Serialise every entity once, bucketed by chunk (one consistent snapshot for a whole save). */
+  World.prototype.entitiesByChunk = function () {
+    const out = new Map();
+    if (!this.collectChunkEntities) return out;
+    const player = this.game ? this.game.player : null;
+    for (const e of this.entities) {
+      if (e.removed || e === player || e.isPlayer) continue;
+      const d = e.serialize && e.serialize();
+      if (!d) continue;
+      const k = ckey(Math.floor(e.x / 16), Math.floor(e.z / 16));
+      const l = out.get(k);
+      if (l) l.push(d); else out.set(k, [d]);
     }
-    return Promise.all(ps);
+    return out;
   };
+  World.prototype.dirtyChunks = function () {
+    const byChunk = this.entitiesByChunk(), list = [];
+    for (const c of this.chunks.values()) {
+      if (!c.generated) continue;
+      const ents = byChunk.get(c.key) || [];
+      if (!c.lit) { if (c.needsSave) list.push([c, ents]); continue; }
+      if (c.needsSave || ents.length) list.push([c, ents]);
+    }
+    return list;
+  };
+  /** Save everything now (quitting, leaving the page, changing dimension). */
+  World.prototype.saveAll = function () {
+    this._saveQueue = null;
+    return Promise.all(this.dirtyChunks().map(([c, ents]) => this.saveChunk(c, ents)));
+  };
+  /** Autosave: snapshot what needs saving now, then copy a few chunks per frame (pumpSaves). */
+  World.prototype.autosave = function () {
+    this._saveQueue = this.dirtyChunks();
+    return this._saveQueue.length;
+  };
+  World.prototype.pumpSaves = function (budgetMs) {
+    const q = this._saveQueue;
+    if (!q) return;
+    const t0 = performance.now();
+    while (q.length && performance.now() - t0 < budgetMs) {
+      const [c, ents] = q.pop();
+      if (this.chunks.get(c.key) === c) this.saveChunk(c, ents); // unloaded chunks saved themselves
+    }
+    if (!q.length) this._saveQueue = null;
+  };
+  World.prototype.saving = function () { return !!(this._saveQueue && this._saveQueue.length) || !!(this._savePending && this._savePending.size); };
   World.prototype.sizeEstimate = function () { return this.savedKeys.size; };
 })();

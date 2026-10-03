@@ -307,7 +307,8 @@
       return 'stone';
     }
 
-    saveWorld() {
+    /** Save the world. incremental (autosave): chunks are written a few per frame instead of all at once. */
+    saveWorld(incremental) {
       if (!this.world) return Promise.resolve();
       this.saveIndicator = 40;
       const w = this.world, m = this.meta;
@@ -318,6 +319,7 @@
       m.size = w.savedKeys.size * 16 * 1024;
       m.lastPlayed = Date.now();
       m.dim = w.dim || 0;
+      if (incremental === true && w.autosave) { w.autosave(); return DL.Storage.putWorld(m.slot, m); }
       return Promise.all([w.saveAll(), DL.Storage.putWorld(m.slot, m)]);
     }
 
@@ -372,13 +374,16 @@
           } else if (type === 'mouseup') {
             if (d.touch && this.touchDown) {
               const td = this.touchDown; this.touchDown = null;
+              if (td.spread) { scr.mouseUp(gx, gy); return; }
               const long = (d.dt || 0) > 400;
               scr.mouseDown(td.x, td.y, long && scr instanceof G.ContainerScreen ? 2 : 0, false);
               if (scr.mouseUp) scr.mouseUp(gx, gy);
               return;
             }
             if (scr.mouseUp) scr.mouseUp(gx, gy);
-          } else if (scr.mouseMove) { if (d.touch && this.touchDown) scr.mouseDown && scr.dragging && scr.mouseMove(gx, gy); else scr.mouseMove(gx, gy); }
+          } else if (scr.mouseMove) {
+            if (d.touch && this.touchDown) { if (scr.touchDrag && scr.touchDrag(this.touchDown, gx, gy)) return; if (scr.dragging) scr.mouseMove(gx, gy); } else scr.mouseMove(gx, gy);
+          }
           return;
         }
         if (type === 'mousedown' && this.inGame && !d.touch) {
@@ -437,7 +442,7 @@
     padButton(b, down) {
       const P = In.GPB;
       const scr = G.screen;
-      if (!down) { if (b === P.LT) this.padUseHeld = false; return; }
+      if (!down) { if (b === P.LT) this.padUseHeld = false; if (scr && scr.padButtonUp) scr.padButtonUp(b); return; }
       A.unlock();
       if (scr) {
         if (b === P.START && scr instanceof G.PauseScreen) { this.setScreen(null); return; }
@@ -620,6 +625,7 @@
       if (this.world) {
         const p = this.player;
         this.world.updateChunks(p.x, p.z, this.loading ? 30 : (IS_MOBILE ? 4 : 7));
+        if (this.world.pumpSaves) this.world.pumpSaves(IS_MOBILE ? 1 : 2);
       }
       this.render(pt, now, dt);
       A.updateMusic(this.inGame);
@@ -647,7 +653,7 @@
           this.setScreen(null);
           this.fadeIn = 1;
           if (L.isNew) this.chatMessage('Welcome to §aDreamLand§f! Press ' + (In.lastDevice === 'touch' ? 'the (...) button' : In.lastDevice === 'gamepad' ? 'Y' : In.keyName(In.binds.inventory)) + ' for your inventory. Type /help for commands.');
-          this.saveWorld();
+          this.saveWorld(true);
         }
       }
     }
@@ -792,7 +798,7 @@
       if (this.itemNameTimer > 0) this.itemNameTimer--;
       if (this.saveIndicator > 0) this.saveIndicator--;
       if (this.shake > 0) this.shake *= 0.85;
-      if (this.tickCount % 600 === 0) this.saveWorld();
+      if (this.tickCount % 600 === 0) this.saveWorld(true);
       this.displayTicks();
       A.setListener(p.x, p.y + p.eye, p.z, p.yaw);
       if (p.health <= 0 && !(G.screen instanceof G.DeathScreen) && p.deathTime > 20 && !this._deathShown) { this._deathShown = true; this.setScreen(new G.DeathScreen(this)); }

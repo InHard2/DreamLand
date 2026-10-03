@@ -567,7 +567,7 @@
     layout() {
       this.widgets = [];
       const cx = G.W / 2;
-      ['Keyboard', 'Touch', 'Controller'].forEach((n, i) => this.btn(n, cx - 150 + i * 102, 24, 96, 20, () => { this.page = i; }));
+      ['Keyboard', 'Touch', 'Controller', 'Inventory'].forEach((n, i) => this.btn(n, cx - 152 + i * 77, 24, 74, 20, () => { this.page = i; }));
       this.btn('Done', cx - 100, G.H - 28, 200, 20, () => this.back());
       if (this.focus < 0 && DL.Input.lastDevice === 'gamepad') this.focus = 2;
     }
@@ -589,7 +589,14 @@
           'X - Use item (alt)   Y - Inventory', 'RT - Break / attack   LT - Place / use', 'LB / RB - Cycle hotbar', 'Right stick click - Sneak toggle',
           'D-pad up - Perspective   D-pad down - Drop stack', 'View button - Chat   Menu button - Pause',
           'In inventory: A pick/place, X place one, Y quick move', 'Left stick click - Sprint toggle',
-          'Not working? Click the game once, then press A.', 'Options > Touch & Controller > Controller Test to check or remap it']
+          'Not working? Click the game once, then press A.', 'Options > Touch & Controller > Controller Test to check or remap it'],
+        ['Hold a stack, press and sweep across slots, release:', '  left button spreads it evenly (great for crafting)', '  right button drops one item in each slot',
+          'Double-click a stack - Gather all matching items onto it', 'Shift + click - Move a stack across',
+          'Shift + double-click - Move every stack of that kind', 'Shift + drag over items - Move each of them',
+          'Wheel down / up over a stack - Send / pull one item', `1-9 over a slot - Swap with that hotbar slot`,
+          `${K(B.drop)} over a slot - Drop one   Ctrl + ${K(B.drop)} - Drop the stack`, 'Shift + click the result - Craft as many as you can',
+          'Middle click (creative) - Copy a full stack', 'Touch: hold a stack and slide a finger across slots',
+          'Controller: hold A (or X) and steer across slots']
       ];
       const lines = pages[this.page];
       let y = 52;
@@ -743,13 +750,18 @@
       return null;
     }
     drawSlots(mx, my) {
+      // while dragging a stack across slots, show where it will land
+      const d = this.drag, sp = d && d.slots.length > 1 ? this.spreadPlan(d) : null;
+      this._dragLeft = sp ? sp.left : undefined;
       for (const s of this.slots) {
         const sx = this.px + s.x, sy = this.py + s.y;
         if (s.big) G.bigSlot(sx - 5, sy - 5); else G.slot(sx - 1, sy - 1);
-        if (!s.get() && s.ghost) s.ghost(sx, sy);
+        if (!s.get() && s.ghost && !(sp && sp.plan.has(s))) s.ghost(sx, sy);
       }
       for (const s of this.slots) {
-        const st = s.get();
+        const n = sp ? sp.plan.get(s) : undefined;
+        const st = n !== undefined ? I().withCount(d.stack, n) : s.get();
+        if (n !== undefined) G.rect(this.px + s.x, this.py + s.y, 16, 16, 'rgba(255,255,255,0.35)');
         if (st) G.drawItem(st, this.px + s.x, this.py + s.y);
       }
       const h = this.slotAt(mx, my);
@@ -760,7 +772,8 @@
       }
     }
     drawCursorItem(mx, my) {
-      const c = this.player.cursor;
+      let c = this.player.cursor;
+      if (c && this._dragLeft !== undefined) c = this._dragLeft > 0 ? I().withCount(c, this._dragLeft) : null;
       if (c) G.drawItem(c, mx - 8, my - 8);
       if (G.tooltip) {
         const t = G.tooltip;
@@ -815,7 +828,153 @@
         } else if (!inside && touch) this.game.setScreen(null);
         return;
       }
+      const now = performance.now(), last = this._lastClick;
+      this._lastClick = null;
+      const quick = last && last.slot === s && now - last.t < 300;
+      // double-click a stack you just picked up: gather every matching item onto it
+      if (button === 0 && !shift && quick && last.picked && p.cursor && !s.output) { this.gather(); return; }
+      // shift + double-click: move every item of that kind across
+      if (button === 0 && shift && quick && last.shift && last.id !== undefined) { this.moveAll(last.id, s); return; }
+      // creative: middle-click copies a full stack
+      if (button === 1) {
+        const st = s.get();
+        if (p.creative && st && !p.cursor) { p.cursor = I().withCount(st, I().maxStack(st.id)); DL.Input.haptic('tick'); }
+        return;
+      }
+      // holding a stack: press, sweep over slots, release to spread it (left: evenly, right: one each)
+      if (p.cursor && !shift && (button === 0 || button === 2) && this.canSpread(s, p.cursor)) {
+        this.drag = { button, slots: [s], stack: I().copy(p.cursor) };
+        return;
+      }
+      const before = s.get(), had = !!p.cursor;
+      if (button === 0 && shift && !had) this.shiftDrag = new Set([s]);
       this.clickSlot(s, button, shift);
+      this._lastClick = { slot: s, t: now, picked: !had && !!p.cursor, shift, id: shift && before ? before.id : undefined };
+    }
+    mouseMove(x, y) {
+      super.mouseMove(x, y);
+      const s = this.slotAt(x, y);
+      if (!s) return;
+      const d = this.drag;
+      if (d) {
+        // each slot needs at least one item: stop adding once the stack is spread that thin
+        if (!d.slots.includes(s) && d.slots.length < d.stack.count && this.canSpread(s, d.stack)) d.slots.push(s);
+        return;
+      }
+      // shift + drag over items moves each of them across
+      const In = DL.Input;
+      if (this.shiftDrag && In.mouse.left && (In.keys.has('ShiftLeft') || In.keys.has('ShiftRight')) && !this.shiftDrag.has(s) && s.get() && !s.output) {
+        this.shiftDrag.add(s);
+        this.clickSlot(s, 0, true);
+      }
+    }
+    mouseUp(x, y) {
+      super.mouseUp(x, y);
+      this.shiftDrag = null;
+      const d = this.drag;
+      if (!d) return;
+      this.drag = null; this._dragLeft = undefined;
+      const p = this.player;
+      if (!p.cursor || p.cursor.id !== d.stack.id) return;
+      if (d.slots.length === 1) {
+        const s = d.slots[0], had = !!p.cursor;
+        this.clickSlot(s, d.button, false);
+        this._lastClick = { slot: s, t: performance.now(), picked: !had && !!p.cursor };
+        return;
+      }
+      const { plan, left } = this.spreadPlan(d);
+      for (const [s, n] of plan) {
+        const cur = s.get();
+        if (cur) { cur.count = n; s.set(cur); } else if (n > 0) s.set(I().withCount(d.stack, n));
+      }
+      p.cursor = left > 0 ? I().withCount(d.stack, left) : null;
+      this.onChanged();
+      DL.Input.haptic('place');
+      DL.Audio.play('click', null, null, null, 0.4, 1.4);
+    }
+    /** Can a slot take part in spreading this stack? */
+    canSpread(s, st) {
+      if (!s || s.output || s.source || s.trash || s.armorSlot || s.armor !== undefined) return false;
+      if (s.accept && !s.accept(st)) return false;
+      const cur = s.get();
+      return !cur || (I().same(cur, st) && cur.count < this.slotMax(s, st.id));
+    }
+    slotMax(s, id) { return Math.min(I().maxStack(id), s.max || 64); }
+    /** Where a drag would put the items: slot -> new count, and what stays on the cursor. */
+    spreadPlan(d) {
+      const st = d.stack, plan = new Map();
+      let left = this.player.cursor ? Math.min(st.count, this.player.cursor.count) : 0;
+      const per = d.button === 2 ? 1 : Math.floor(left / d.slots.length);
+      for (const s of d.slots) {
+        const cur = s.get();
+        if (cur && !I().same(cur, st)) continue;
+        const have = cur ? cur.count : 0;
+        const k = Math.max(0, Math.min(per, this.slotMax(s, st.id) - have, left));
+        plan.set(s, have + k);
+        left -= k;
+      }
+      return { plan, left };
+    }
+    /** Double-click: pull every matching item into the stack on the cursor (part stacks first). */
+    gather() {
+      const p = this.player, c = p.cursor, max = I().maxStack(c.id);
+      const from = this.slots.filter(s => !s.output && !s.source && !s.trash && I().same(s.get(), c));
+      from.sort((a, b) => a.get().count - b.get().count);
+      for (const s of from) {
+        if (c.count >= max) break;
+        const st = s.get(), n = Math.min(st.count, max - c.count);
+        c.count += n; st.count -= n;
+        s.set(st.count > 0 ? st : null);
+      }
+      this.onChanged();
+      DL.Input.haptic('tick');
+    }
+    /** Shift + double-click: move every stack of this kind on the same side across. */
+    moveAll(id, from) {
+      const side = (s) => this.quickToContainer ? !!s.inv === !!from.inv : (from.inv ? (from.hotbar ? s.hotbar : s.main) : !s.inv);
+      for (const s of this.slots) {
+        const st = s.get();
+        if (!st || st.id !== id || s.output || s.source || s.trash || s.armorSlot || !side(s)) continue;
+        this.clickSlot(s, 0, true);
+      }
+      this.onChanged();
+    }
+    /** Scroll wheel over a stack: down sends one item across, up pulls one back. */
+    wheel(dir) {
+      const s = this.slotAt(G.mouse.x, G.mouse.y);
+      if (!s || s.output || s.source || s.trash || this.player.cursor) return;
+      const st = s.get();
+      if (dir > 0) {
+        if (!st) return;
+        const rest = st.count - 1;
+        s.set(I().withCount(st, 1));
+        this.quickMove(s);
+        s.set(s.get() ? I().withCount(st, rest + 1) : rest > 0 ? I().withCount(st, rest) : null);
+      } else {
+        if (!st || st.count >= this.slotMax(s, st.id)) return;
+        const other = this.slots.find(o => o !== s && !o.output && !o.source && !o.trash && (this.quickToContainer ? !!o.inv !== !!s.inv : true) && I().same(o.get(), st));
+        if (!other) return;
+        const os = other.get();
+        st.count++; s.set(st);
+        os.count--; other.set(os.count > 0 ? os : null);
+      }
+      this.onChanged();
+      DL.Input.haptic('tick');
+    }
+    /** Touch: hold a stack, drag a finger across slots to spread it. */
+    touchDrag(td, x, y) {
+      const p = this.player;
+      if (!this.drag) {
+        if (!p.cursor || td.spreadTried) return false;
+        const s0 = this.slotAt(td.x, td.y), s1 = this.slotAt(x, y);
+        if (!s0 || !s1 || s1 === s0) return false;
+        td.spreadTried = true;
+        if (!this.canSpread(s0, p.cursor)) return false;
+        this.drag = { button: 0, slots: [s0], stack: I().copy(p.cursor) };
+        td.spread = true;
+      }
+      this.mouseMove(x, y);
+      return true;
     }
     clickSlot(s, button, shift) {
       const p = this.player;
@@ -911,15 +1070,17 @@
           if (!b || !s.accept || s.accept(b)) { s.set(b); p.inv[n] = a; this.onChanged(); }
         }
       }
-      if (s && code === B.drop && s.get() && !s.output) {
-        const st = s.get();
-        this.player.dropItem(I().stack(st.id, 1, st.dmg));
-        st.count--; if (st.count <= 0) s.set(null);
+      if (s && code === B.drop && s.get() && !s.output && !s.source) {
+        const st = s.get(), K = DL.Input.keys;
+        const n = K.has('ControlLeft') || K.has('ControlRight') || K.has('MetaLeft') ? st.count : 1; // ctrl: whole stack
+        this.player.dropItem(I().withCount(st, n));
+        st.count -= n; s.set(st.count > 0 ? st : null);
         this.onChanged();
       }
     }
     close() {
       const p = this.player;
+      this.drag = null;
       if (p.cursor) { const left = p.addItem(p.cursor); if (left) p.dropItem(left); p.cursor = null; }
       this.onClose();
     }
@@ -927,6 +1088,10 @@
     returnGrid(grid) {
       const p = this.player;
       for (let i = 0; i < grid.length; i++) if (grid[i]) { const left = p.addItem(grid[i]); if (left) p.dropItem(left); grid[i] = null; }
+    }
+    padButtonUp(b) {
+      const P = DL.Input.GPB, c = this.cursorPos;
+      if ((b === P.A || b === P.X) && c && this.drag) this.mouseUp(c.x, c.y);
     }
     padButton(b) {
       const P = DL.Input.GPB;
@@ -952,7 +1117,7 @@
         const d = dx ? Math.abs(ddx) + Math.abs(ddy) * 3 : Math.abs(ddy) + Math.abs(ddx) * 3;
         if (d < bd) { bd = d; best = [sx, sy]; }
       }
-      if (best) { c.x = best[0]; c.y = best[1]; DL.Input.haptic('tick'); }
+      if (best) { c.x = best[0]; c.y = best[1]; DL.Input.haptic('tick'); if (this.drag) this.mouseMove(c.x, c.y); }
     }
     padCursor(ax, ay, dt) {
       if (!this.cursorPos) this.cursorPos = { x: G.W / 2, y: G.H / 2 };
@@ -965,6 +1130,7 @@
         const s = this.slotAt(c.x, c.y);
         if (s) { const sx = this.px + s.x + 8, sy = this.py + s.y + 8; c.x += (sx - c.x) * 0.25; c.y += (sy - c.y) * 0.25; }
       }
+      if (this.drag) this.mouseMove(c.x, c.y);
     }
     drawLabel(s, x, y) { G.text(s, this.px + x, this.py + y, '#404040', false); }
   }

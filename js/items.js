@@ -129,6 +129,7 @@
   /* ------------------------------------------------------------ */
   I.stack = function (id, count, dmg) { return { id, count: count === undefined ? 1 : count, dmg: dmg || 0 }; };
   I.copy = s => s ? { id: s.id, count: s.count, dmg: s.dmg || 0 } : null;
+  I.withCount = (s, n) => ({ id: s.id, count: n, dmg: s.dmg || 0 });
   I.same = (a, b) => a && b && a.id === b.id && (a.dmg || 0) === (b.dmg || 0) && !defs[a.id].maxDamage;
 
   /* ------------------------------------------------------------ */
