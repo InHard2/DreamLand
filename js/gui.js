@@ -1434,7 +1434,8 @@
     let rightRows = 1;
     const mount = p.vehicle && p.vehicle.living && p.vehicle.maxHealth ? p.vehicle : null;
     if (mount) {
-      const mh = Math.max(0, Math.ceil(mount.health)), n = Math.ceil(mount.maxHealth / 2);
+      // big mounts: at most three rows, each heart worth more
+      const k = Math.max(1, mount.maxHealth / 60), mh = Math.max(0, Math.ceil(mount.health / k)), n = Math.ceil(mount.maxHealth / k / 2);
       rightRows = Math.ceil(n / 10);
       for (let i = 0; i < n; i++) {
         const x = right - (i % 10) * 8, y = gy - Math.floor(i / 10) * 10;

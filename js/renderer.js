@@ -930,8 +930,10 @@ void main(){
       const ex = lerp(e.px, e.x, pt), ey = lerp(e.py, e.y, pt), ez = lerp(e.pz, e.z, pt);
       const d2 = (ex - cam.x) ** 2 + (ey - cam.y) ** 2 + (ez - cam.z) ** 2;
       if (d2 > maxD2) continue;
-      const hw = (e.w || 0.5) / 2 + 0.5;
-      if (!this.frustum.testAABB(ex - hw - cam.x, ey - cam.y - 0.5, ez - hw - cam.z, ex + hw - cam.x, ey + (e.h || 1) + 0.5 - cam.y, ez + hw - cam.z)) continue;
+      // giants (renderR) reach far past their hitbox: a wingtip on screen is enough
+      const rr = e.def && e.def.renderR ? e.def.renderR * (e.scale ? e.scale / (e.def.scale || 1) : 1) : 0;
+      const hw = Math.max((e.w || 0.5) / 2 + 0.5, rr);
+      if (!this.frustum.testAABB(ex - hw - cam.x, ey - cam.y - 0.5 - rr * 0.5, ez - hw - cam.z, ex + hw - cam.x, ey + Math.max(e.h || 1, rr) + 0.5 - cam.y, ez + hw - cam.z)) continue;
       const bx = Math.floor(ex), by = Math.floor(ey + (e.h || 0.5) * 0.6), bz = Math.floor(ez);
       const light = [world.getSky(bx, by, bz), world.getBlockLight(bx, by, bz)];
       if (e.living) {
