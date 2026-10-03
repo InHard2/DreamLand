@@ -908,6 +908,21 @@
     }
     return popSet.apply(this, arguments);
   };
+  /** Is there a start of this structure type within dist blocks of (x, z)? (cheap: no plans are built) */
+  St.startNear = function (w, name, x, z, dist) {
+    const dim = w.dim || 0;
+    for (const T of St.TYPES) {
+      if (T.name !== name || T.dim !== dim) continue;
+      const sp = T.spacing, g0x = Math.floor((x / 16) / sp), g0z = Math.floor((z / 16) / sp), rr = Math.ceil(dist / 16 / sp) + 1;
+      for (let gx = g0x - rr; gx <= g0x + rr; gx++) for (let gz = g0z - rr; gz <= g0z + rr; gz++) {
+        const r = new S.RNG(S.hash2(w.seed ^ T.salt, gx, gz));
+        if (r.next() > T.chance) continue;
+        const sx = (gx * sp + r.nextInt(sp - T.sep)) * 16 + 8, sz = (gz * sp + r.nextInt(sp - T.sep)) * 16 + 8;
+        if (Math.hypot(sx - x, sz - z) < dist) return true;
+      }
+    }
+    return false;
+  };
   const Plan = St.Plan;
   const T = St.TYPES.find(t => t.name === 'village' && t.dim === 0);
   if (T) Object.assign(T, { spacing: 30, sep: 9, radius: 5, chance: 0.9, salt: 0x5c1, build: bigVillage });
