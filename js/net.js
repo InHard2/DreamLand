@@ -488,8 +488,11 @@
           const cur = w.getBlock(x, y, z);
           if (DENY_BREAK.has(cur) && !(cur === B.end_portal_frame && m.id === B.end_portal_frame)) return this.correct(x, y, z);
           if (m.id === B.end_portal_frame && cur !== B.end_portal_frame && !g.meta.creative) return this.correct(x, y, z);
-          w.setBlock(x, y, z, m.id, m.m, 3);
-          w.neighborChanged(x, y, z);
+          // a door arrives one half at a time: its bottom goes in quietly and the top half completes it
+          // (checking the bottom alone would pop it off, as placing it does in single player)
+          const door = m.id === B.wooden_door;
+          w.setBlock(x, y, z, m.id, m.m, door && !(m.m & 8) ? 2 : 3);
+          if (!door) w.neighborChanged(x, y, z);
           if (m.id === B.end_portal_frame && (m.m & 4) && g.checkEndPortal) g.checkEndPortal(x, y, z);
           return;
         }

@@ -81,7 +81,22 @@ The dimension revealed at Minecraft Live: build a **crying obsidian** frame and 
 DreamLand's own take on the classic OreSpawn mod, drawn and voiced from scratch:
 - **Ores and materials**: uranium, titanium, amethyst, ruby, Mobzilla scales and more, with tools, weapons (Big Bertha, Royal Guardian sword, battle axe, Queen's Battle Axe, chainsaw, ray gun, squid zooka) and 14 armour sets with powers.
 - **Food and crops**: strawberries, tomatoes, corn, lettuce, quinoa, radishes, rice, butter, cherry and peach trees, crystal apples, and the fancy dishes.
+- **The giants**: The King (three heads: fire, ice and lightning), The Queen, Pitch Black, Mobzilla (atomic breath), the Kraken, Mothra, Robo-Jeffery, the CaterKiller (it eats trees), the Vortex and the Sea Viper, each with a boss bar and a guaranteed trophy that finishes Big Bertha and the Royal Guardian gear. Wear the whole Royal Guardian set and The King and Queen leave you alone. The Queen drops **The Prince Egg**: hatch it, feed it meat, and after three days fly it.
+- **3D gear**: Big Bertha, the Royal Guardian Sword, the battle axes, hammers, chainsaw and guns are real 3D models in your hand, and every armour set looks like what it is made of (crowns, capes, horns, plumes, spikes, wings, gems).
 - **83 creatures**: dinosaurs (T. rex, alosaurus, velocity raptors, cryolophosaurus, baryonyx, camarasaurus, basilisk...), dragons, Spyro, water dragons, cloud sharks, the leonopteryx, giant bugs (mantises, stink bugs, Hercules beetles, emperor scorpions), sea monsters, whales, ghosts, Ender knights and reapers, triffids, worms, urchins and many cute critters. Tame Spyro, the baryonyx or the camarasaurus with food, ride the camarasaurus or an ostrich, and find every one's spawn egg in the **OreSpawn** creative tab.
+
+## Building and crafting
+- **Every wood and stone**: doors, stairs, slabs and fences come in every wood (oak, spruce, birch, jungle, acacia, dark oak, mangrove, cherry, pale oak, skyroot, crystal, sift), and stairs and slabs in 16 stones (stone, mossy cobblestone, deepslate, blackstone, prismarine, end stone bricks...). Any planks, logs or cobble-like stone work in the everyday recipes, even mixed.
+- **Beds**: three wool on three planks (red, white or blue). Sleep at night or in a thunderstorm to skip to morning and wake up there after dying. Not with monsters nearby, and never in the Nether or the End.
+- **Inventory tricks** (like Minecraft): hold a stack and sweep across slots to spread it (left button: evenly, right button: one each); double-click to gather; shift-click, shift-double-click and shift-drag to move stacks; wheel over a stack to move one item; 1-9 to swap with the hotbar; Q / Ctrl+Q to drop; shift-click a result to craft as many as you can. Touch: hold a stack and slide a finger; controller: hold A or X and steer. All of it is on the *Inventory* page of Help & Controls.
+
+## Controller not working?
+The title screen shows the controller's state in the bottom-left corner, with what to do:
+1. Click the game once, then press **A**. Browsers only show a controller to a page after a button press.
+2. Open the game at **http://localhost:8080** (the address *Start DreamLand Server.bat* opens) or the downloaded `index.html`, not at a `192.168...` address: browsers block controllers on those.
+3. Use Edge or Chrome. If the game runs inside another app's window, open it in a browser tab instead.
+4. Close Steam / DS4Windows if they are running (they can take the controller over), or plug the controller in with a cable.
+5. *Options > Touch & Controller > Controller Test* shows every button live and lets you remap them.
 
 ## Updating your copy (no more zips)
 Run **Update DreamLand.bat** (Windows) or `./update.sh` (Mac/Linux) in the DreamLand folder. It needs [Git](https://git-scm.com/downloads); the first run links the folder to GitHub, every later run downloads only what changed. Your worlds are kept because they live in your browser. Reload the game page afterwards (Ctrl+F5).

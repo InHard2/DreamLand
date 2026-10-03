@@ -319,8 +319,8 @@
       ctx.scale(s, s);
       F.drawCentered(ctx, this.splash, 0, -8, '#FFFF00');
       ctx.restore();
-      G.text('DreamLand Alpha v1.2.6', 2 + G.safe.l, 2 + G.safe.t, '#505050', false);
-      G.text('DreamLand Alpha v1.2.6', 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
+      G.text('DreamLand Alpha v1.3.0', 2 + G.safe.l, 2 + G.safe.t, '#505050', false);
+      G.text('DreamLand Alpha v1.3.0', 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
       const c = 'Not affiliated with Mojang. A fan tribute.';
       G.text(c, G.W - F.width(c) - 2 - G.safe.r, G.H - 10 - G.safe.b, '#FFFFFF');
       // controller status, always in view, with what to do about it
@@ -1549,7 +1549,7 @@
     const c = w.getChunk(bx >> 4, bz >> 4);
     const biome = DL.biomeNameAt ? DL.biomeNameAt(w, bx, by, bz) : c && c.biomes ? DL.S.BIOME_NAMES[c.biomes[((bz & 15) << 4) | (bx & 15)]] : '?';
     const lines = [
-      'DreamLand Alpha v1.2.6 (' + game.fps + ' fps, ' + w.stats.meshJobs + ' chunk updates)',
+      'DreamLand Alpha v1.3.0 (' + game.fps + ' fps, ' + w.stats.meshJobs + ' chunk updates)',
       'C: ' + r.stats.drawn + '/' + r.stats.sections + '. F: ' + Math.round(r.stats.faces) + ', Q: ' + w.dirtySections.size,
       'E: ' + w.entities.filter(e => !e.removed).length + '. P: ' + r.particles.length + '. L: ' + w.chunks.size + ' chunks',
       'Seed: ' + w.seed + '  Biome: ' + biome,
