@@ -135,9 +135,9 @@
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     document.addEventListener('dblclick', (e) => e.preventDefault());
 
+    // a pad that merely connects (or a phantom device) does not switch the game to controller mode: using it does
     window.addEventListener('gamepadconnected', (e) => {
       In.gp.connected = true; In.gp.id = e.gamepad.id;
-      In.lastDevice = 'gamepad';
       In.getPad();
     });
     window.addEventListener('gamepaddisconnected', (e) => {
@@ -267,6 +267,7 @@
     if (!navigator.getGamepads) return [];
     try { return Array.from(navigator.getGamepads() || []); } catch (e) { In.padBlocked = true; return []; }
   }
+  In.readPads = readPads;
   // Every pad we have seen: resting axes (so stuck axes on phantom devices never count as input) and when it was last used.
   const seen = new Map();
   const XBOXY = /xbox|xinput|045e|microsoft|standard gamepad/i;
@@ -301,11 +302,52 @@
     } else In.gp.connected = false;
     return best;
   };
+  In.padRest = (p) => padInfo(p).rest;
   const btnVal = (b) => (b === undefined ? 0 : typeof b === 'object' ? (b.pressed && !b.value ? 1 : b.value) : b);
+  In.btnVal = btnVal;
+  // Custom layouts made with the Remap Buttons screen, by controller name.
+  In.padMaps = {};
+  const HAT_STEP = 2 / 7;
+  const hatDir = (v) => (v >= -1.05 && v <= 1.05 ? ((Math.round((v + 1) / HAT_STEP) % 8) + 8) % 8 : -1);
+  /** One mapped input: {b} a button, {a, v, r} an axis pushed from r towards v, {a, h} a d-pad hat direction. */
+  function srcVal(src, raw, a) {
+    if (!src) return 0;
+    if (src.b !== undefined) return raw[src.b] || 0;
+    const x = a[src.a];
+    if (x === undefined) return 0;
+    if (src.h !== undefined) { const d = hatDir(x); return d < 0 ? 0 : (d === src.h || d === (src.h + 1) % 8 || d === (src.h + 7) % 8) ? 1 : 0; }
+    const span = src.v - src.r;
+    return Math.abs(span) < 0.2 ? 0 : Math.max(0, Math.min(1, (x - src.r) / span));
+  }
+  function applyMap(p, map) {
+    const raw = Array.from(p.buttons, btnVal), a = Array.from(p.axes);
+    const b = new Array(17).fill(0);
+    for (let i = 0; i < 17; i++) b[i] = srcVal(map.b && map.b[i], raw, a);
+    const ax = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) { const s = map.ax && map.ax[i]; if (s && a[s.a] !== undefined) ax[i] = Math.max(-1, Math.min(1, a[s.a] * s.s)); }
+    return { buttons: b, axes: ax };
+  }
   /** Buttons and sticks in the standard (Xbox) layout, whatever layout the browser reports. */
   function standardize(p) {
+    const custom = In.padMaps && In.padMaps[p.id];
+    if (custom) return applyMap(p, custom);
     const raw = Array.from(p.buttons, btnVal), a = Array.from(p.axes);
     if (p.mapping === 'standard' || (raw.length >= 17 && a.length <= 4)) return { buttons: raw, axes: [a[0] || 0, a[1] || 0, a[2] || 0, a[3] || 0] };
+    // Xbox One / Series pads over Bluetooth seen as plain HID (DirectInput): A B _ X Y _ LB RB _ _ View Menu Xbox LS RS,
+    // sticks on axes 0-1 and 2-5 (or 2-3), triggers on two of the remaining axes and the d-pad on a hat.
+    if (/045e/i.test(p.id) && raw.length >= 15 && raw.length <= 17) {
+      const b = new Array(17).fill(0);
+      const map = [0, 1, -1, 2, 3, -1, 4, 5, -1, -1, 8, 9, 16, 10, 11];
+      for (let i = 0; i < map.length; i++) if (map[i] >= 0) b[map[i]] = raw[i] || 0;
+      const rest = padInfo(p).rest;
+      // a trigger travels away from wherever it rests (-1, 0 or 1)
+      const trig = (i) => { const x = a[i], r = rest[i] || 0; if (x === undefined) return 0; return Math.max(0, Math.min(1, r > 0.5 ? (r - x) / (r + 1) : (x - r) / (1 - r))); };
+      let rx = a[2] || 0, ry = a[3] || 0;
+      if (a.length >= 6) { rx = a[2] || 0; ry = a[5] || 0; b[6] = trig(3); b[7] = trig(4); }
+      const last = a.length - 1, hat = a.length >= 7 && (rest[last] || 0) > 1.05 ? hatDir(a[last]) : -1;
+      if (hat >= 0) { b[12] = hat === 7 || hat <= 1 ? 1 : 0; b[15] = hat >= 1 && hat <= 3 ? 1 : 0; b[13] = hat >= 3 && hat <= 5 ? 1 : 0; b[14] = hat >= 5 && hat <= 7 ? 1 : 0; }
+      return { buttons: b, axes: [a[0] || 0, a[1] || 0, rx, ry] };
+    }
     // Common raw Xbox layout (Firefox, older drivers): axes lx, ly, lt, rx, ry, rt, dpad x, dpad y;
     // buttons A B X Y LB RB View Menu Xbox LS RS.
     const b = new Array(17).fill(0);
@@ -344,6 +386,7 @@
       else if (!now && was) emit('padbutton', { button: i, down: false });
     }
   };
+  In.standardize = standardize;
   In.padDown = (b) => (In.gp.buttons[b] || 0) > 0.5;
   In.padValue = (b) => In.gp.buttons[b] || 0;
 

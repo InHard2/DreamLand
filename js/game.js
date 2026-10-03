@@ -22,6 +22,7 @@
     constructor() {
       this.settings = Object.assign({}, DEFAULTS, DL.Storage.loadSettings() || {});
       if (this.settings.binds) In.binds = Object.assign({}, In.DEFAULT_BINDS, this.settings.binds);
+      if (this.settings.padMaps && typeof this.settings.padMaps === 'object') In.padMaps = this.settings.padMaps;
       this.world = null; this.player = null; this.inGame = false;
       this.tickCount = 0; this.acc = 0; this.last = performance.now();
       this.fps = 0; this.frames = 0; this.fpsT = performance.now();
@@ -107,7 +108,7 @@
       }
       if (this.renderer) this.resize();
     }
-    saveSettings() { this.settings.binds = In.binds; DL.Storage.saveSettings(this.settings); }
+    saveSettings() { this.settings.binds = In.binds; this.settings.padMaps = In.padMaps; DL.Storage.saveSettings(this.settings); }
 
     setScreen(s) {
       const old = G.screen;
@@ -721,7 +722,7 @@
       const hit = E.raycast(w, ex, ey, ez, d[0], d[1], d[2], reach, false);
       let best = null, bestT = Math.min(reach - 1, hit ? hit.t : reach - 1);
       for (const e of w.entities) {
-        if (e === p || !e.living || e.removed || e.health <= 0) continue;
+        if (e === p || e === p.vehicle || !e.living || e.removed || e.health <= 0) continue;
         const b = e.box;
         const g = 0.1;
         const h = E.rayBox(ex, ey, ez, d[0], d[1], d[2], [b[0] - g, b[1] - g, b[2] - g, b[3] + g, b[4] + g, b[5] + g]);

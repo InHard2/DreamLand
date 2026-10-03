@@ -515,7 +515,8 @@
         if (o.slider) this.widgets.push({ type: 'slider', x, y, w: 150, h: 20, value: o.value, label: o.label, onChange: (v) => { o.set(v); this.game.saveSettings(); } });
         else { const b = this.btn(o.label(), x, y, 150, 20, () => { o.click(); b.label = o.label(); this.game.saveSettings(); }); }
       });
-      this.btn('Done', cx - 100, y0 + 24 * 4 + 12, 200, 20, () => this.back());
+      this.btn('Controller Test...', cx - 155, y0 + 24 * 4 + 12, 150, 20, () => this.game.setScreen(new G.ControllerScreen(this.game, this)), { hidden: !G.ControllerScreen });
+      this.btn('Done', cx + 5, y0 + 24 * 4 + 12, 150, 20, () => this.back());
       if (this.focus < 0 && DL.Input.lastDevice === 'gamepad') this.focus = 0;
     }
     draw(mx, my) {
@@ -587,7 +588,8 @@
         ['Left stick - Move / move cursor in menus', 'Right stick - Look around', 'A - Jump / confirm', 'B - Drop item / back',
           'X - Use item (alt)   Y - Inventory', 'RT - Break / attack   LT - Place / use', 'LB / RB - Cycle hotbar', 'Right stick click - Sneak toggle',
           'D-pad up - Perspective   D-pad down - Drop stack', 'View button - Chat   Menu button - Pause',
-          'In inventory: A pick/place, X place one, Y quick move', 'Rumble & trigger haptics supported (Xbox, DualSense)']
+          'In inventory: A pick/place, X place one, Y quick move', 'Left stick click - Sprint toggle',
+          'Not working? Click the game once, then press A.', 'Options > Touch & Controller > Controller Test to check or remap it']
       ];
       const lines = pages[this.page];
       let y = 52;

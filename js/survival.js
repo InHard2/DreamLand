@@ -487,7 +487,7 @@
     p.sitting = null; p.vehicle = m; m.rider = p; m.persistent = true; m.path = null; m.target = null;
     m.tameT = 0;
     snd(m, 'cow', 0.6, 1.4);
-    if (!isTamed(m)) say(game, p, '§7This horse is wild: stay on until it calms down (hearts), then it\'s yours.');
+    if (!isTamed(m)) say(game, p, m.saddleFor ? '§eIt\'s wild! Hold on until it trusts you (hearts), and your saddle goes on by itself.' : '§7This horse is wild: stay on until it calms down (hearts), then it\'s yours.');
     else if (!saddled(m)) say(game, p, '§7Riding bareback: it goes where it likes. Put a saddle on it to steer. Sneak to get off.');
     else say(game, p, '§7Riding! Sneak to get off. ' + (p === (DL.game && DL.game.player) ? 'Press ' + (In.lastDevice === 'gamepad' ? 'Y' : In.lastDevice === 'touch' ? 'the inventory button' : In.keyName(In.binds.inventory)) + ' for the horse\'s inventory.' : ''));
     if (p === (DL.game && DL.game.player) && DL.Extras && DL.Extras.grant) DL.Extras.grant('ride');
@@ -524,7 +524,13 @@
     function mountOrInfo() { if (!p.vehicle && !m.rider) mountHorse(p, m, game); }
     if (held && held.id === SADDLE) {
       if (saddled(m)) { mountOrInfo(); return true; }
-      if (!tamed) { say(game, p, '§eTame this horse first: ride it with an empty hand until hearts appear.'); return true; }
+      if (!tamed) {
+        // a wild horse: climb on to tame it, and the saddle goes on once it trusts you
+        if (p.vehicle || m.rider) return true;
+        m.saddleFor = p.conn || 'me';
+        mountHorse(p, m, game);
+        return true;
+      }
       setSaddle(m, true); m.persistent = true;
       if (!p.creative) p.consumeHeld(1);
       snd(m, 'cloth', 0.8, 1); fx(m, 'happy', 6);
@@ -543,6 +549,10 @@
     if (p.vehicle || m.rider) return true;
     mountHorse(p, m, game);
     return true;
+  }
+  function takeOne(p, id) {
+    if (p.held && p.held.id === id) { p.consumeHeld(1); return; }
+    for (let i = 0; i < p.inv.length; i++) { const st = p.inv[i]; if (st && st.id === id) { if (--st.count <= 0) p.inv[i] = null; return; } }
   }
   function horseAI(m) {
     const r = m.rider;
@@ -564,11 +574,22 @@
         if (rnd() * 100 < (m.temper || 0)) {
           m.tamed = 1; m.persistent = true;
           fx(m, 'heart', 7); snd(m, 'cow', 0.8, 1.6);
-          const g = DL.game;
-          if (m.rider === (g && g.player)) g.chatMessage('§aThe horse trusts you now! Put a saddle on it to steer.');
-          else if (m.rider && m.rider.conn) m.rider.conn.send({ t: 'msg', m: '§aThe horse trusts you now! Put a saddle on it to steer.' });
+          const g = DL.game, me = m.rider === (g && g.player);
+          // the saddle you were holding goes straight on
+          let msg = '§aThe horse trusts you now! Put a saddle on it to steer.';
+          const r0 = m.rider, guest = !!(r0 && r0.conn && m.saddleFor === r0.conn);
+          if (!saddled(m) && ((me && r0.inv && (r0.creative || r0.countItem(SADDLE) > 0)) || guest)) {
+            if (me && !r0.creative) takeOne(r0, SADDLE);
+            // a guest's inventory lives on their side: ask for the saddle back
+            if (guest) r0.conn.send({ t: 'inv', take: [SADDLE, 1] });
+            setSaddle(m, true); snd(m, 'cloth', 0.8, 1);
+            msg = '§aThe horse trusts you now, and it\'s saddled! Steer with your movement keys.';
+          }
+          m.saddleFor = null;
+          if (me) g.chatMessage(msg);
+          else if (m.rider && m.rider.conn) m.rider.conn.send({ t: 'msg', m: msg });
         } else {
-          m.temper = Math.min(100, (m.temper || 0) + 5);
+          m.temper = Math.min(100, (m.temper || 0) + 10);
           fx(m, 'smoke', 6);
           throwOff(m);
         }
@@ -805,8 +826,6 @@
       if (!px || p.vehicle) return;
       p.sitting = null; p.vehicle = px; px.rider = p;
       cl._riding = px;
-      const sad = saddled(px);
-      g.chatMessage(sad ? '§7Riding! Sneak to get off.' : isTamed(px) ? '§7Riding bareback: put a saddle on it to steer. Sneak to get off.' : '§7This horse is wild: stay on until it calms down (hearts).');
     };
     N.clientHandlers.dis = (cl, m, g, w, p) => {
       if (!p.vehicle) return;
