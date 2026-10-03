@@ -64,6 +64,30 @@ Tabs like modern Minecraft: Building, Colored, Natural, Functional and Redstone 
 - **Minimap** with coordinates and the biome name (M to toggle, or Options), **death coordinates** in chat, and a **Sort** button in your inventory and chests.
 - The creative inventory's Survival Inventory tab now shows your 3D character, and there are spawn eggs for all the new creatures.
 
+## Survival like modern Minecraft
+- **Hunger and saturation**: eating restores both, sprinting and fighting burn them, a full bar heals you and an empty one hurts. Golden apples give regeneration and absorption.
+- **Swimming**: sprint in water to swim flat and fast (with the swimming pose for everyone watching).
+- **Horses**: tame one by riding it with an empty hand until it hearts, or right-click a wild horse holding a **saddle** to put it on and mount straight away. Sneak to get off.
+- **Resource packs**: *Options > Resource Packs* (or drop a .zip on the game) loads any Minecraft Java pack, 16x to 64x. Packs only change pictures.
+
+## The Sift
+The dimension revealed at Minecraft Live: build a **crying obsidian** frame and light it with an **echo shard**. Pastel floating islands over a sea of iridescent ichor, red sculk meadows, the Carapace's giant fossils, Echo Dens, the Sift Tides and their creatures.
+
+## Villages and castles
+- **Villages** are now towns: winding streets, a central plaza with a well or bell, market stalls, farms, smithies, libraries, churches, taverns, barracks, watchtowers and a palisade, in plains, desert, savanna, taiga and snowy styles. Dozens of villagers live there.
+- **Giant castles** stand on hills: curtain walls with towers and wall-walks, a gatehouse with a portcullis, a courtyard, a great hall, a keep, dungeons with spawners and treasure. Some are ruined. `/locate castle` finds one.
+
+## OreSpawn
+DreamLand's own take on the classic OreSpawn mod, drawn and voiced from scratch:
+- **Ores and materials**: uranium, titanium, amethyst, ruby, Mobzilla scales and more, with tools, weapons (Big Bertha, Royal Guardian sword, battle axe, Queen's Battle Axe, chainsaw, ray gun, squid zooka) and 14 armour sets with powers.
+- **Food and crops**: strawberries, tomatoes, corn, lettuce, quinoa, radishes, rice, butter, cherry and peach trees, crystal apples, and the fancy dishes.
+- **83 creatures**: dinosaurs (T. rex, alosaurus, velocity raptors, cryolophosaurus, baryonyx, camarasaurus, basilisk...), dragons, Spyro, water dragons, cloud sharks, the leonopteryx, giant bugs (mantises, stink bugs, Hercules beetles, emperor scorpions), sea monsters, whales, ghosts, Ender knights and reapers, triffids, worms, urchins and many cute critters. Tame Spyro, the baryonyx or the camarasaurus with food, ride the camarasaurus or an ostrich, and find every one's spawn egg in the **OreSpawn** creative tab.
+
+## Updating your copy (no more zips)
+Run **Update DreamLand.bat** (Windows) or `./update.sh` (Mac/Linux) in the DreamLand folder. It needs [Git](https://git-scm.com/downloads); the first run links the folder to GitHub, every later run downloads only what changed. Your worlds are kept because they live in your browser. Reload the game page afterwards (Ctrl+F5).
+
+From **Visual Studio Code**: open the DreamLand folder, open *Terminal > New Terminal* and type `git pull` (or `.\"Update DreamLand.bat"` if you started from a zip). To get a fresh copy instead of a zip: `git clone https://github.com/InHard2/DreamLand.git`.
+
 ## Playing on several computers (LAN server)
 Downloaded copies have no Claude lobby, so DreamLand ships a tiny server that runs the lobby and carries the game traffic. It needs **Node.js** or **Python 3** (no packages).
 1. On one PC, extract the zip and double-click **Start DreamLand Server.bat** (Windows), or run `./start-server.sh` (Mac/Linux), `node server.js` or `python server.py`. When Windows asks, click **Allow access**.
