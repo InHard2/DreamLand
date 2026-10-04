@@ -882,6 +882,8 @@
   }
 
   // nothing natural grows on a village's claimed ground (ores underneath still do)
+  // (the Overworld, and OreSpawn's Village Mania)
+  const CLAIM_DIMS = { 0: 1, 7: 1 };
   function claimsFor(w, cx, cz) {
     if (!w._claimCache) w._claimCache = new Map();
     const k = cx + ',' + cz;
@@ -895,14 +897,14 @@
     return list;
   }
   St.claimAt = function (w, x, z) {
-    if ((w.dim || 0) !== 0) return undefined;
+    if (!CLAIM_DIMS[w.dim || 0]) return undefined;
     let best;
     for (const c of claimsFor(w, x >> 4, z >> 4)) { const v = c.get(x + ',' + z); if (v !== undefined && (best === undefined || v < best)) best = v; }
     return best;
   };
   const popSet = W.popSet;
   W.popSet = function (x, y, z, id, meta) {
-    if ((this.dim || 0) === 0 && this.gen) {
+    if (CLAIM_DIMS[this.dim || 0] && this.gen) {
       const v = St.claimAt(this, x, z);
       if (v !== undefined && y > v) return;
     }

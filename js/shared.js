@@ -70,6 +70,7 @@ function DL_SHARED_FACTORY() {
     'door_top_spruce', 'door_bottom_spruce', 'door_top_birch', 'door_bottom_birch', 'door_top_jungle', 'door_bottom_jungle', 'door_top_acacia', 'door_bottom_acacia',
     'door_top_dark', 'door_bottom_dark', 'door_top_mangrove', 'door_bottom_mangrove', 'door_top_cherry', 'door_bottom_cherry', 'door_top_pale_oak', 'door_bottom_pale_oak',
     'door_top_skyroot', 'door_bottom_skyroot', 'door_top_crystal', 'door_bottom_crystal', 'door_top_sift', 'door_bottom_sift',
+    'quartz_block', 'quartz_block_top', 'island_block', 'royal_seal_king', 'royal_seal_queen', 'crystal_leaves2',
     'strawberry_0', 'strawberry_1', 'strawberry_2', 'strawberry_3', 'tomato_0', 'tomato_1', 'tomato_2', 'tomato_3', 'corn_0', 'corn_1', 'corn_2', 'corn_3', 'lettuce_0', 'lettuce_1', 'lettuce_2', 'lettuce_3', 'radish_0', 'radish_1', 'radish_2', 'radish_3', 'rice_0', 'rice_1', 'rice_2', 'rice_3', 'quinoa_0', 'quinoa_1', 'quinoa_2', 'quinoa_3'
   ];
   const T = {};
@@ -372,6 +373,12 @@ function DL_SHARED_FACTORY() {
   def(110, 'scary_leaves', LEAF({ tex: 'scary_leaves' }));
   def(111, 'crystal_torch', PLANT({ tex: 'crystal_torch', emit: 15, flammable: false, sound: 'glass', hardness: 0.2 }));
   def(116, 'mobzilla_scale_block', PK({ tex: 'mobzilla_scale_block', hardness: 50, sound: 'stone' }));
+  // OreSpawn's dimensions: quartz for the royal altars, the seed of a floating island, the royal seals that wake The King
+  // and The Queen (meta 1), and the blue leaves of the Crystal Dimension
+  def(11, 'quartz_block', PK({ tex: { top: 'quartz_block_top', bottom: 'quartz_block_top', side: 'quartz_block' }, hardness: 0.8 }));
+  def(197, 'island_block', PK({ tex: 'island_block', hardness: 0.6, emit: 13, sound: 'glass' }));
+  def(204, 'royal_seal', PK({ tex: 'royal_seal_king', hardness: 3, emit: 10, sound: 'metal' }));
+  def(205, 'crystal_leaves2', LEAF({ tex: 'crystal_leaves2', emit: 5, flammable: false }));
   // crops show one of four growth stages
   const STAGES = new Int16Array(256).fill(-1);
   for (const n of ['strawberry', 'tomato', 'corn', 'lettuce', 'radish', 'rice', 'quinoa']) STAGES[B[n + '_crop']] = T[n + '_0'];
@@ -385,7 +392,7 @@ function DL_SHARED_FACTORY() {
   }
   const LEAVES = new Uint8Array(256);
   LEAVES[B.leaves] = LEAVES[B.skyroot_leaves] = LEAVES[B.golden_oak_leaves] = LEAVES[B.sift_leaves] = 1;
-  LEAVES[B.crystal_leaves] = LEAVES[B.apple_leaves] = LEAVES[B.experience_leaves] = LEAVES[B.scary_leaves] = 1;
+  LEAVES[B.crystal_leaves] = LEAVES[B.crystal_leaves2] = LEAVES[B.apple_leaves] = LEAVES[B.experience_leaves] = LEAVES[B.scary_leaves] = 1;
   for (const n of ['birch', 'spruce', 'acacia', 'jungle', 'mangrove', 'cherry', 'pale_oak', 'azalea', 'flowering_azalea', 'dark_oak']) LEAVES[B[n + '_leaves']] = 1;
   const LOGS = new Uint8Array(256);
   for (const n of ['log', 'dark_log', 'birch_log', 'spruce_log', 'acacia_log', 'jungle_log', 'mangrove_log', 'cherry_log', 'pale_oak_log', 'skyroot_log', 'golden_oak_log', 'sift_log', 'crystal_log']) LOGS[B[n]] = 1;
@@ -494,6 +501,7 @@ function DL_SHARED_FACTORY() {
     if (id === B.farmland && face === 1) return meta > 0 ? T.farmland_wet : T.farmland_dry;
     if (id === B.end_portal_frame && face === 1 && (meta & 4)) return T.end_frame_eye;
     if (id === B.nether_wart) return T.nether_wart_0 + [0, 1, 1, 2][Math.min(3, meta & 3)];
+    if (id === B.royal_seal && (meta & 1)) return T.royal_seal_queen;
     const vs = VAR_SRC[id];
     if (vs !== undefined && meta >= 16) {
       const v = (meta >> 4) & 15;
@@ -645,6 +653,9 @@ function DL_SHARED_FACTORY() {
     const r3 = new RNG((seed ^ 0x6b10e5) + 31337);
     this.weird = new Octaves(r3, 4); this.river = new Octaves(r3, 4); this.spire = new Octaves(r3, 3); this.patch = new Octaves(r3, 3); this.band = new Octaves(r3, 2);
     this.weirdGrid = new Float32Array(25); this.riverGrid = new Float32Array(25); this.contGrid = new Float32Array(25);
+    // OreSpawn's Overworld-like dimensions read the same noise far away, so their lands are new
+    this.ox = this.dim >= 5 ? (this.dim - 4) * 24071 : 0;
+    this.oz = this.dim >= 5 ? (this.dim - 4) * -17389 : 0;
   }
   S.Generator = Generator;
 
@@ -693,6 +704,32 @@ function DL_SHARED_FACTORY() {
     return BI.SAVANNA;
   }
   S.classifyBiome = classifyBiome;
+  /** The biomes OreSpawn's Overworld-like dimensions allow. */
+  function dimBiome(D, b, y, cl) {
+    const BI = BIOME;
+    const wet = b === BI.OCEAN || b === BI.DEEP_OCEAN || b === BI.WARM_OCEAN || b === BI.FROZEN_OCEAN || b === BI.RIVER || b === BI.FROZEN_RIVER;
+    if (D === 5) {
+      // Utopia: forever spring
+      if (b === BI.FROZEN_OCEAN) return BI.OCEAN;
+      if (b === BI.FROZEN_RIVER) return BI.RIVER;
+      if (wet || b === BI.BEACH) return b;
+      if (b === BI.MUSHROOM_FIELDS || b === BI.PALE_GARDEN || b === BI.SWAMP) return BI.FLOWER_FOREST;
+      if (y >= 95) return cl[2] > 0 ? BI.CHERRY_GROVE : BI.MEADOW;
+      return b;
+    }
+    if (D === 6) {
+      if (wet) return b === BI.FROZEN_RIVER ? BI.RIVER : b;
+      if (y >= 108) return BI.SNOWY_SLOPES;
+      if (y >= 96) return BI.STONY_PEAKS;
+      return cl[1] > 0.55 ? BI.WINDSWEPT_FOREST : BI.WINDSWEPT_HILLS;
+    }
+    if (D === 7) {
+      if (b === BI.MUSHROOM_FIELDS || b === BI.ICE_SPIKES) return BI.PLAINS;
+      if (y >= 95) return BI.MEADOW;
+      return b;
+    }
+    return b;
+  }
   const lerp4 = (g, i00, fx, fz) => (g[i00] * (1 - fx) + g[i00 + 5] * fx) * (1 - fz) + (g[i00 + 1] * (1 - fx) + g[i00 + 6] * fx) * fz;
   Generator.prototype.climateFromGrid = function (x, z) {
     const gx = x >> 2, gz = z >> 2, fx = (x & 3) / 4, fz = (z & 3) / 4, i = gx * 5 + gz;
@@ -721,20 +758,27 @@ function DL_SHARED_FACTORY() {
     if (this.dim === 2) return this.genEnd(cx, cz);
     if (this.dim === 3) return this.genAether(cx, cz);
     if (this.dim === 4) return this.genSift(cx, cz);
+    if (this.dim === 8) return this.genIslands(cx, cz);
+    if (this.dim === 9) return this.genCrystal(cx, cz);
+    if (this.dim === 10) return this.genChaos(cx, cz);
+    // 5 Utopia, 6 the Mining Dimension and 7 Village Mania reshape the Overworld's terrain
+    const D = this.dim;
     const blocks = new Uint8Array(16 * 16 * CH);
     const meta = new Uint8Array(16 * 16 * CH);
     const biomes = new Uint8Array(256);
     const NX = 5, NY = 17, NZ = 5;
     const dens = new Float32Array(NX * NY * NZ);
-    const bx = cx * 16, bz = cz * 16;
+    const bx = cx * 16, bz = cz * 16, nx = bx + this.ox, nz = bz + this.oz;
 
     const tg = this.tempGrid, hg = this.humidGrid;
     for (let gx = 0; gx < NX; gx++) {
       for (let gz = 0; gz < NZ; gz++) {
-        const wx = bx + gx * 4, wz = bz + gz * 4;
+        const wx = nx + gx * 4, wz = nz + gz * 4;
         tg[gx * NZ + gz] = this.temp.sample2(wx / 520, wz / 520) * 2.6 + 0.5;
         hg[gx * NZ + gz] = this.humid.sample2(wx / 430, wz / 430) * 2.6 + 0.5;
-        const c = this.cont.sample2(wx / 340, wz / 340) * 3.2;
+        let c = this.cont.sample2(wx / 340, wz / 340) * 3.2;
+        if (D === 5) { tg[gx * NZ + gz] = Math.max(0.3, Math.min(0.66, tg[gx * NZ + gz])); hg[gx * NZ + gz] = Math.max(0.12, Math.min(0.58, hg[gx * NZ + gz])); c = Math.max(c, -0.6); }
+        else if (D === 7) c = Math.max(c, -0.25);
         const rf = this.riverAt(wx, wz, c);
         this.weirdGrid[gx * NZ + gz] = this.weird.sample2(wx / 380, wz / 380) * 2.6;
         this.riverGrid[gx * NZ + gz] = rf;
@@ -745,9 +789,14 @@ function DL_SHARED_FACTORY() {
         let h = 69 + c * 10;
         if (c > 0.3) h += (c - 0.3) * 30;
         if (c < -0.5) h += (c + 0.5) * 16;
+        // the Mining Dimension is all Extreme Hills: high, steep and broken
+        if (D === 6) { r = 0.65 + r * 0.35; h = 82 + Math.abs(c) * 12 + r * 8; }
         if (rf > 0 && h > SEA - 5) h += (SEA - 5 - h) * rf; // rivers cut valleys down to the sea
-        const amp = (0.5 + r * 1.0) * (1 - rf * 0.8);
-        const squash = 6 + r * 18;
+        let amp = (0.5 + r * 1.0) * (1 - rf * 0.8);
+        let squash = 6 + r * 18;
+        if (D === 6) { amp *= 1.7; squash = 4 + r * 8; }
+        else if (D === 7) { amp *= 0.35; squash += 10; }
+        else if (D === 5) amp *= 0.85;
         for (let gy = 0; gy < NY; gy++) {
           const wy = gy * 8;
           const lo = this.low.sample(wx / 85, wy / 60, wz / 85);
@@ -803,11 +852,12 @@ function DL_SHARED_FACTORY() {
       T_, B.orange_terracotta, T_, B.red_terracotta, T_, B.yellow_terracotta, T_, T_, B.brown_terracotta, T_, B.light_gray_terracotta, B.orange_terracotta];
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
-        const wx = bx + x, wz = bz + z;
+        const wx = nx + x, wz = nz + z;
         let ground = CH - 1;
         while (ground > 0 && (blocks[(ground << 8) | (z << 4) | x] === 0 || blocks[(ground << 8) | (z << 4) | x] === 8)) ground--;
         const cl = this.climateFromGrid(x, z);
-        const biome = classifyBiome(cl[0], cl[1], cl[2], cl[3], cl[4], ground + Math.floor(rng.next() * 3));
+        let biome = classifyBiome(cl[0], cl[1], cl[2], cl[3], cl[4], ground + Math.floor(rng.next() * 3));
+        if (D >= 5) biome = dimBiome(D, biome, ground, cl);
         biomes[(z << 4) | x] = biome;
         const bn = this.beach.sample2(wx / 48, wz / 48) * 3;
         let sandy = bn + rng.next() * 0.2 > 0.0;
@@ -1021,6 +1071,112 @@ function DL_SHARED_FACTORY() {
       blocks[(0 << 8) | (z << 4) | x] = B.bedrock;
       for (let y = 1; y <= 2; y++) blocks[(y << 8) | (z << 4) | x] = B.sift_stone;
       for (let y = 3; y <= 9; y++) blocks[(y << 8) | (z << 4) | x] = B.ichor;
+    }
+    return { blocks, meta, biomes };
+  };
+
+  /* OreSpawn's Islands (8): a low meadow under a sky crowded with floating islands.
+     Biomes: Plains for the meadow, Meadow under a grassy sky island, Mushroom Fields under one of
+     OreSpawn's mushroom-and-end-stone islands. */
+  /** The Islands' meadow height at (wx, wz); ponds sit lower, their water at y 8. */
+  Generator.prototype.islandGround = function (wx, wz) {
+    const n = this.d4.sample2(wx / 52, wz / 52) * 3, pond = this.d3.sample2(wx / 38, wz / 38) * 3;
+    const g = 8 + Math.round(Math.max(-1, Math.min(1.4, n)) * 1.4);
+    return pond > 0.62 ? Math.min(g, 8) - 1 - Math.round(Math.min(2, (pond - 0.62) * 4)) : g;
+  };
+  Generator.prototype.genIslands = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    const bx = cx * 16, bz = cz * 16, rng = this.rng;
+    rng.setSeed(hash2(this.seed ^ 0x15a7d, cx, cz));
+    this.densityFill(cx, cz, (x, y, z) => {
+      if (y < 40 || y > 118) return -1;
+      const big = this.d1.sample(x / 84, y / 34, z / 84) * 3;
+      const det = this.d2.sample(x / 26, y / 13, z / 26) * 0.9 + this.d4.sample(x / 10, y / 8, z / 10) * 0.18;
+      const band = (y - 78) / 26;
+      // flat-topped, round-bottomed: the density falls off faster below the middle
+      const under = y < 74 ? (74 - y) / 22 : 0;
+      return big + det - 0.75 - band * band * 1.6 - under * under * 1.4;
+    }, (x, y, z, v) => { if (v > 0) blocks[(y << 8) | (z << 4) | x] = B.stone; });
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const wx = bx + x, wz = bz + z, col = (z << 4) | x;
+      // the meadow: bedrock, dirt and grass, a hand's height above the bedrock, with shallow ponds
+      const pond = this.d3.sample2(wx / 38, wz / 38) * 3, g = this.islandGround(wx, wz), wet = pond > 0.62;
+      blocks[col] = B.bedrock;
+      for (let y = 1; y < g; y++) blocks[(y << 8) | col] = y === 1 ? B.stone : B.dirt;
+      const shore = !wet && pond > 0.5 && g <= 9;
+      blocks[(g << 8) | col] = wet ? (pond > 0.8 ? B.clay : B.sand) : shore ? B.sand : B.grass;
+      if (wet) for (let y = g + 1; y <= 8; y++) blocks[(y << 8) | col] = B.water;
+      // the islands above
+      const style = this.d3.sample2(wx / 110 + 31, wz / 110 - 7) * 3 > 0.35 ? 2 : 1;
+      let run = -1, any = false;
+      for (let y = 117; y > 30; y--) {
+        const i = (y << 8) | col;
+        if (blocks[i] !== B.stone) { run = -1; continue; }
+        any = true;
+        if (run === -1) { blocks[i] = style === 2 ? B.mycelium : B.grass; run = style === 2 ? 0 : 2 + rng.nextInt(2); }
+        else if (run > 0) { blocks[i] = B.dirt; run--; }
+        else if (style === 2) blocks[i] = rng.nextInt(60) === 0 ? B.diamond_ore : B.end_stone;
+      }
+      biomes[col] = any ? (style === 2 ? BIOME.MUSHROOM_FIELDS : BIOME.MEADOW) : BIOME.PLAINS;
+    }
+    return { blocks, meta, biomes };
+  };
+
+  /* OreSpawn's Crystal Dimension (9): rolling hills of crystal under crystal grass, and glassy seas. */
+  Generator.prototype.genCrystal = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256);
+    const bx = cx * 16, bz = cz * 16, rng = this.rng;
+    this.densityFill(cx, cz, (x, y, z) => {
+      const hill = Math.max(0, this.d3.sample2(x / 200, z / 200) * 3 - 0.2) * 14;
+      const n = this.d1.sample(x / 110, y / 56, z / 110) * 2.4 + this.d2.sample(x / 34, y / 22, z / 34) * 0.9 + this.d4.sample(x / 12, y / 10, z / 12) * 0.2;
+      return n + (66 + hill - y) / (12 + hill * 0.6);
+    }, (x, y, z, v) => { const i = (y << 8) | (z << 4) | x; if (v > 0) blocks[i] = B.stone; else if (y <= SEA - 1) blocks[i] = B.water; });
+    this.carveCaves(cx, cz, blocks);
+    rng.setSeed(hash2(this.seed ^ 0xc7157, cx, cz));
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const wx = bx + x, wz = bz + z, col = (z << 4) | x;
+      let top = true;
+      for (let y = CH - 1; y >= 0; y--) {
+        const i = (y << 8) | col, b = blocks[i];
+        if (y < 5 && y <= rng.nextInt(5)) { blocks[i] = B.bedrock; continue; }
+        if (b === 0) { top = true; continue; }
+        if (b === B.stone || b === B.dirt || b === B.grass) blocks[i] = top && y >= SEA - 1 && blocks[i + 256] === 0 ? B.crystal_grass : B.crystal_stone;
+        top = false;
+      }
+      // tall crystal shards stand here and there
+      const sp = this.spire.sample2(wx / 9 + 300, wz / 9 - 120) * 2.6;
+      if (sp > 0.74) {
+        let g = CH - 2; while (g > 0 && blocks[(g << 8) | col] === 0) g--;
+        if (blocks[(g << 8) | col] === B.crystal_grass) {
+          const hh = Math.min(13, Math.floor((sp - 0.74) * 80));
+          for (let y = g; y <= Math.min(CH - 2, g + hh); y++) blocks[(y << 8) | col] = B.crystal_stone;
+        }
+      }
+    }
+    return { blocks, meta, biomes };
+  };
+
+  /* OreSpawn's Chaos (10): a world-sized cavern, but green: grass on every ledge, lakes below. */
+  Generator.prototype.genChaos = function (cx, cz) {
+    const blocks = new Uint8Array(16 * 16 * CH), meta = new Uint8Array(16 * 16 * CH), biomes = new Uint8Array(256).fill(BIOME.FOREST);
+    const rng = this.rng;
+    this.densityFill(cx, cz, (x, y, z) => {
+      const n = this.d1.sample(x / 64, y / 34, z / 64) * 3 + this.d2.sample(x / 20, y / 14, z / 20) * 1.1;
+      return n + Math.max(0, (26 - y) / 6) + Math.max(0, (y - 100) / 6) - 0.35;
+    }, (x, y, z, v) => { const i = (y << 8) | (z << 4) | x; if (v > 0) blocks[i] = B.stone; else if (y <= 30) blocks[i] = B.water; });
+    rng.setSeed(hash2(this.seed ^ 0xc4a05, cx, cz));
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) {
+      const col = (z << 4) | x;
+      let run = -1;
+      for (let y = CH - 1; y >= 0; y--) {
+        const i = (y << 8) | col;
+        if ((y < 5 && y <= rng.nextInt(5)) || (y > 122 && y >= 127 - rng.nextInt(5))) { blocks[i] = B.bedrock; run = -1; continue; }
+        const b = blocks[i];
+        if (b !== B.stone) { run = b === 0 ? -1 : -2; continue; }
+        if (run === -1) { if (y > 30) { blocks[i] = B.grass; run = 2 + rng.nextInt(2); } else { blocks[i] = rng.nextInt(3) ? B.sand : B.gravel; run = 2; } }
+        else if (run === -2) { blocks[i] = y < 34 ? (rng.nextInt(4) ? B.sand : B.clay) : B.stone; run = 1; }
+        else if (run > 0) { blocks[i] = y > 30 ? B.dirt : B.sand; run--; }
+      }
     }
     return { blocks, meta, biomes };
   };

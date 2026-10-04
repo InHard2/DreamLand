@@ -234,8 +234,9 @@
   }
   function sleepIn(g, x, y, z) {
     const w = g.world, p = g.player, m = w.getMeta(x, y, z);
-    // beds were not made for other worlds
-    if (w.dim) {
+    // beds were not made for other worlds (OreSpawn's own worlds excepted: sleep there, but home stays in the Overworld)
+    const osWorld = w.dim >= 5 && w.dim <= 10;
+    if (w.dim && !osWorld) {
       if (isGuest()) return;
       w.setBlock(x, y, z, 0, 0, 3);
       const [ox, oy, oz] = otherHalf(x, y, z, m); if (w.getBlock(ox, oy, oz) === B.bed) w.setBlock(ox, oy, oz, 0, 0, 3);
@@ -244,16 +245,17 @@
     }
     // the head half is where you lie
     const hx = (m & 8) ? x : otherHalf(x, y, z, m)[0], hz = (m & 8) ? z : otherHalf(x, y, z, m)[2];
-    p.spawnPoint = [hx + 0.5, y + 0.6, hz + 0.5, 'bed', hx, y, hz];
+    if (!osWorld) p.spawnPoint = [hx + 0.5, y + 0.6, hz + 0.5, 'bed', hx, y, hz];
+    const set = osWorld ? '' : 'Respawn point set. ';
     const thunder = w.weather && w.weather.thunder > 0.5;
-    if (w.isDaytime() && !thunder) { g.chatMessage('§7Respawn point set. You can only sleep at night or during thunderstorms.'); return; }
+    if (w.isDaytime() && !thunder) { g.chatMessage('§7' + set + 'You can only sleep at night or during thunderstorms.'); return; }
     if (Math.hypot(p.x - x - 0.5, p.z - z - 0.5) > 3) { g.chatMessage('§7You may not rest now; the bed is too far away.'); return; }
     if (monstersNear(w, x, y, z)) { g.chatMessage('§7You may not rest now; there are monsters nearby.'); return; }
-    if (isGuest()) { g.chatMessage('§7Respawn point set. Nights pass when the host sleeps.'); return; }
+    if (isGuest()) { g.chatMessage('§7' + set + 'Nights pass when the host sleeps.'); return; }
     p.sleeping = { x: hx, y, z: hz, t: 0, foot: (m & 8) ? otherHalf(x, y, z, m) : [x, y, z], dir: m & 3 };
     p.vehicle = null; p.sitting = null;
     p.yaw = [0, Math.PI, Math.PI / 2, -Math.PI / 2][m & 3] + Math.PI; p.pitch = 0;
-    g.chatMessage('§7Respawn point set. Sleeping...');
+    g.chatMessage('§7' + (osWorld ? 'Sleeping... (your home stays in the Overworld)' : 'Respawn point set. Sleeping...'));
   }
   function wake(p, why) {
     const s = p.sleeping;

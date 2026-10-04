@@ -773,22 +773,29 @@
     c.populated = true;
     c.needsSave = true;
     if (this.dim && this.populateDim) { this.populateDim(c); return; }
+    this.populateOverworld(c);
+  };
+  /** The Overworld's features. OreSpawn's Overworld-like worlds reuse them with options:
+   *  ores (how many times the usual ore), dungeons (false: none), animals (false: none). */
+  World.prototype.populateOverworld = function (c, o) {
+    o = o || {};
     const r = this.popRng;
-    r.setSeed(S.hash2(this.seed ^ 0x1b873593, c.cx, c.cz));
+    r.setSeed(S.hash2(this.seed ^ 0x1b873593 ^ (this.dim ? this.dim * 7919 : 0), c.cx, c.cz));
     const bx = c.cx * 16, bz = c.cz * 16;
     this._popOrigin = c;
     const biome = c.biomes ? c.biomes[8 * 16 + 8] : 0;
     const BI = S.BIOME;
+    const ore = o.ores || 1;
 
-    for (let i = 0; i < 8; i++) this.genDungeon(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8);
+    if (o.dungeons !== false) for (let i = 0; i < 8; i++) this.genDungeon(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8);
     for (let i = 0; i < 10; i++) this.genClay(r, bx + r.nextInt(16) + 8, r.nextInt(128), bz + r.nextInt(16) + 8, 32);
     for (let i = 0; i < 20; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(128), bz + r.nextInt(16), 32, B.dirt);
     for (let i = 0; i < 10; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(128), bz + r.nextInt(16), 32, B.gravel);
-    for (let i = 0; i < 20; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(128), bz + r.nextInt(16), 16, B.coal_ore);
-    for (let i = 0; i < 20; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(64), bz + r.nextInt(16), 8, B.iron_ore);
-    for (let i = 0; i < 2; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(32), bz + r.nextInt(16), 8, B.gold_ore);
-    for (let i = 0; i < 8; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.redstone_ore);
-    for (let i = 0; i < 1; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.diamond_ore);
+    for (let i = 0; i < 20 * ore; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(128), bz + r.nextInt(16), 16, B.coal_ore);
+    for (let i = 0; i < 20 * ore; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(64), bz + r.nextInt(16), 8, B.iron_ore);
+    for (let i = 0; i < 2 * ore; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(32), bz + r.nextInt(16), 8, B.gold_ore);
+    for (let i = 0; i < 8 * ore; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.redstone_ore);
+    for (let i = 0; i < 1 * ore; i++) this.genMinable(r, bx + r.nextInt(16), r.nextInt(16), bz + r.nextInt(16), 7, B.diamond_ore);
 
     if (this.decorateBiomes) this.decorateBiomes(r, c, bx, bz);
     // trees
@@ -828,7 +835,7 @@
     }
     // animals
     const cx8 = bx + 8, cz8 = bz + 8;
-    if (r.nextInt(biome === BI.DESERT ? 40 : 9) === 0) {
+    if (o.animals !== false && r.nextInt(biome === BI.DESERT ? 40 : 9) === 0) {
       const mush = biome === BI.MUSHROOM_FIELDS;
       const special = DL.biomeAnimals ? DL.biomeAnimals(biome) : null;
       const types = mush ? ['mooshroom'] : special || ['pig', 'pig', 'cow', 'cow', 'sheep', 'sheep', 'chicken', 'chicken'];

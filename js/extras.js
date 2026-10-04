@@ -114,7 +114,8 @@
     return w.weather;
   }
   X.weather = weatherOf;
-  const canRain = (w) => (w.dim || 0) === 0;
+  // it rains in the Overworld and in OreSpawn's open-sky worlds (Utopia, the Mining Dimension, Village Mania, the Islands)
+  const canRain = (w) => { const d = w.dim || 0; return d === 0 || (d >= 5 && d <= 8); };
   const skySub = W.skySubtracted;
   W.skySubtracted = function (pt) {
     let v = skySub.call(this, pt);

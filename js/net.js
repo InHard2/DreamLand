@@ -454,7 +454,7 @@
       switch (m.t) {
         case 'ps': {
           if (!isVec(m.p, 3, 3e7) || !isVec(m.r, 4, 100) || m.p[1] < -200 || m.p[1] > 600) return;
-          if (isInt(m.dim, 0, 4) && m.dim !== (w.dim || 0)) return;
+          if (isInt(m.dim, 0, 10) && m.dim !== (w.dim || 0)) return;
           rp.target = m.p.slice();
           rp.tyaw = m.r[0]; rp.pitch = Math.max(-1.6, Math.min(1.6, m.r[1])); rp.tbody = m.r[2];
           const fl = isInt(m.f, 0, 255) ? m.f : 0;
@@ -690,7 +690,8 @@
       for (const c of this.conns) {
         if (!c.authed) continue;
         i++;
-        const x = p.x + (i % 2 ? 1 : -1), y = p.y, z = p.z + (i > 2 ? 1 : 0);
+        // in the host's own block: the one beside it may be inside a cliff (and the guest pushed out on top of it)
+        const x = p.x + (i % 2 ? 0.3 : -0.3), y = p.y, z = p.z + (i > 2 ? 0.3 : -0.1);
         c.rp = new RemotePlayer(w, c, x, y, z);
         c.rp.creative = !!g.meta.creative;
         w.entities.push(c.rp);
@@ -930,7 +931,7 @@
       switch (m.t) {
         case 'welcome': this.start(m); return;
         case 'kick': this.kickReason = clean(m.r, 60) || 'Disconnected'; return;
-        case 'world': if (isInt(m.dim, 0, 4) && isVec(m.pos, 3, 3e7)) this.enterWorld(m.dim, m.pos, isNum(m.time, 0, 1e12) ? m.time : 0, m.fy); return;
+        case 'world': if (isInt(m.dim, 0, 10) && isVec(m.pos, 3, 3e7)) this.enterWorld(m.dim, m.pos, isNum(m.time, 0, 1e12) ? m.time : 0, m.fy); return;
       }
       if (!w || !p) return;
       switch (m.t) {
@@ -1060,7 +1061,7 @@
       this.send({ t: 'drop', p: [F2(p.x), F2(p.y + p.eye - 0.3), F2(p.z)], v: [F2(-s * pc * 0.3), F2(ps * 0.3 + 0.1), F2(-c * pc * 0.3)], st });
     }
     start(m) {
-      if (this.started || !isInt(m.seed, -2147483648, 2147483647) || !isInt(m.dim, 0, 4) || !isVec(m.pos, 3, 3e7)) return;
+      if (this.started || !isInt(m.seed, -2147483648, 2147483647) || !isInt(m.dim, 0, 10) || !isVec(m.pos, 3, 3e7)) return;
       this.started = true;
       const g = this.game;
       g.meta = { slot: '__lan', name: clean(m.n, 32) || 'LAN World', seed: m.seed, creative: !!m.cr, spawn: isVec(m.sp, 3, 3e7) ? m.sp : m.pos, mp: true, dragonKilled: !!m.dk };

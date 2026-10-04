@@ -780,7 +780,8 @@
       let j = 0;
       for (let i = 0; i < ents.length; i++) if (!ents[i].removed) ents[j++] = ents[i];
       ents.length = j;
-      if (this.tickCount % 4 === 0) E.naturalSpawn(w, p);
+      // on the world's own clock: the spawners inside check w.totalTicks against multiples of 4
+      if (w.totalTicks % 4 === 0) E.naturalSpawn(w, p);
       E.tickSpawners(w, p);
       // interactions
       if (!scr && p.health > 0) this.interact();
@@ -1266,8 +1267,9 @@
       if (underwater) { r.fogMode = 1; r.fogDensity = 0.08; r.fogColor = [0.02 + r.fogColor[0] * 0.05, 0.02 + r.fogColor[1] * 0.1, 0.2 * Math.max(0.3, 1 - r.skySub / 11)]; }
       if (inLava) { r.fogMode = 1; r.fogDensity = 2; r.fogColor = [0.6, 0.1, 0]; }
       if (p.y < 16 && !w.dim) { const f = Math.max(0, p.y / 16); r.fogColor = r.fogColor.map(c => c * (0.2 + 0.8 * f)); }
-      r.ambient = w.dim === 1 ? 0.12 : w.dim === 2 ? 0.08 : 0;
+      r.ambient = w.dim === 1 ? 0.12 : w.dim === 2 ? 0.08 : w.dim === 10 ? 0.2 : w.dim === 9 ? 0.03 : 0;
       if (w.dim === 1 && !inLava) { r.fogStart = Math.min(r.fogStart, 6); r.fogEnd = Math.min(r.fogEnd, 88); }
+      if (w.dim === 10 && !inLava && !underwater) { r.fogStart = Math.min(r.fogStart, 12); r.fogEnd = Math.min(r.fogEnd, 120); }
       if (w.dim === 2 && !underwater) { r.fogStart = Math.max(r.fogStart, far * 0.6); }
       gl.clearColor(r.fogColor[0], r.fogColor[1], r.fogColor[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
