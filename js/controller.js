@@ -120,6 +120,14 @@
         line('Still nothing? Plug it in with a cable, or close Steam / DS4Windows', '#808080');
         line('(they can take over the controller), then reload the page.', '#808080');
         if (In.embedded) line('Playing inside another app? Open DreamLand in Edge or Chrome instead.', '#808080');
+        else {
+          // works somewhere else but not in this browser: an extension or the browser itself is hiding it
+          line('Works elsewhere but not here? Try a private window (Ctrl+Shift+N):', '#808080');
+          line('if it works there, a browser extension is hiding the controller. Or try Edge.', '#808080');
+        }
+        const ua = navigator.userAgent, br = /Edg\/(\d+)/.exec(ua) ? 'Edge ' + /Edg\/(\d+)/.exec(ua)[1] : /Chrome\/(\d+)/.exec(ua) ? 'Chrome ' + /Chrome\/(\d+)/.exec(ua)[1] : /Firefox\/(\d+)/.exec(ua) ? 'Firefox ' + /Firefox\/(\d+)/.exec(ua)[1] : 'browser';
+        let slots = 0; try { slots = (navigator.getGamepads() || []).length; } catch (e) { slots = -1; }
+        line(br + ', ' + (location.protocol === 'file:' ? 'file' : location.host || 'page') + ', DreamLand v' + DL.VERSION + ', ' + slots + ' slots, none in use', '#606060');
       } else {
         for (const q of pads.slice(0, 4)) {
           const act = p && q.index === p.index;

@@ -6,6 +6,23 @@
   const DL = window.DL;
   const F = DL.Font;
   const G = DL.GUI = {};
+  DL.VERSION = '1.4.0';
+  /** Ask GitHub once whether a newer DreamLand is out (downloaded copies only; nothing is sent but the request). */
+  G.checkForUpdate = function () {
+    if (G._updateChecked) return;
+    G._updateChecked = true;
+    let embedded = true;
+    try { embedded = window.top !== window; } catch (e) { embedded = true; }
+    if (embedded || !window.fetch || !/^(https?|file):$/.test(location.protocol)) return;
+    const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+    const ctl = window.AbortController ? new AbortController() : null;
+    const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 8000);
+    fetch('https://raw.githubusercontent.com/InHard2/DreamLand/main/version.json', { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { const v = j && typeof j.version === 'string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(j.version) ? j.version : null; if (v && newer(v, DL.VERSION)) G.updateAvailable = v; })
+      .catch(() => { /* offline, or not allowed: no matter */ })
+      .then(() => clearTimeout(timer));
+  };
   const I = () => DL.Items;
 
   G.init = function (canvas) {
@@ -286,7 +303,7 @@
     'Touch me!', 'Oof!', 'Watch out for lava!', 'Bread is great!', '100% procedural!', 'Cellular automata water!'
   ];
   class TitleScreen extends Screen {
-    constructor(game) { super(game); this.splash = SPLASHES[Math.floor(Math.random() * SPLASHES.length)]; this.t0 = performance.now(); }
+    constructor(game) { super(game); this.splash = SPLASHES[Math.floor(Math.random() * SPLASHES.length)]; this.t0 = performance.now(); G.checkForUpdate(); }
     get pauses() { return false; }
     get showWorld() { return false; }
     layout() {
@@ -319,8 +336,12 @@
       ctx.scale(s, s);
       F.drawCentered(ctx, this.splash, 0, -8, '#FFFF00');
       ctx.restore();
-      G.text('DreamLand Alpha v1.3.0', 2 + G.safe.l, 2 + G.safe.t, '#505050', false);
-      G.text('DreamLand Alpha v1.3.0', 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
+      G.text('DreamLand Alpha v' + DL.VERSION, 2 + G.safe.l, 2 + G.safe.t, '#505050', false);
+      G.text('DreamLand Alpha v' + DL.VERSION, 2 + G.safe.l, 2 + G.safe.t, '#FFFFFF');
+      if (G.updateAvailable) {
+        const u = 'v' + G.updateAvailable + ' is out! Run "Update DreamLand" in your DreamLand folder';
+        G.text(u, 2 + G.safe.l, 12 + G.safe.t, Math.floor(performance.now() / 700) % 2 ? '#FFFF60' : '#FFD040');
+      }
       const c = 'Not affiliated with Mojang. A fan tribute.';
       G.text(c, G.W - F.width(c) - 2 - G.safe.r, G.H - 10 - G.safe.b, '#FFFFFF');
       // controller status, always in view, with what to do about it
@@ -1549,7 +1570,7 @@
     const c = w.getChunk(bx >> 4, bz >> 4);
     const biome = DL.biomeNameAt ? DL.biomeNameAt(w, bx, by, bz) : c && c.biomes ? DL.S.BIOME_NAMES[c.biomes[((bz & 15) << 4) | (bx & 15)]] : '?';
     const lines = [
-      'DreamLand Alpha v1.3.0 (' + game.fps + ' fps, ' + w.stats.meshJobs + ' chunk updates)',
+      'DreamLand Alpha v' + DL.VERSION + ' (' + game.fps + ' fps, ' + w.stats.meshJobs + ' chunk updates)',
       'C: ' + r.stats.drawn + '/' + r.stats.sections + '. F: ' + Math.round(r.stats.faces) + ', Q: ' + w.dirtySections.size,
       'E: ' + w.entities.filter(e => !e.removed).length + '. P: ' + r.particles.length + '. L: ' + w.chunks.size + ' chunks',
       'Seed: ' + w.seed + '  Biome: ' + biome,

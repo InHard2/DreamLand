@@ -83,6 +83,14 @@ DreamLand's own take on the classic OreSpawn mod, drawn and voiced from scratch:
 - **Food and crops**: strawberries, tomatoes, corn, lettuce, quinoa, radishes, rice, butter, cherry and peach trees, crystal apples, and the fancy dishes.
 - **The giants**: The King (three heads: fire, ice and lightning), The Queen, Pitch Black, Mobzilla (atomic breath), the Kraken, Mothra, Robo-Jeffery, the CaterKiller (it eats trees), the Vortex and the Sea Viper, each with a boss bar and a guaranteed trophy that finishes Big Bertha and the Royal Guardian gear. Wear the whole Royal Guardian set and The King and Queen leave you alone. The Queen drops **The Prince Egg**: hatch it, feed it meat, and after three days fly it.
 - **3D gear**: Big Bertha, the Royal Guardian Sword, the battle axes, hammers, chainsaw and guns are real 3D models in your hand, and every armour set looks like what it is made of (crowns, capes, horns, plumes, spikes, wings, gems).
+- **Six worlds of its own**: right-click an ant or a butterfly and it carries you there; right-click one of the same kind there to come home (pets that are not sitting come along).
+  - **Utopia** (brown ant): no monsters at all, giant trees, orchards, wild crops, red, gold and enchanted cows, ruby dungeons, and royal temples where The King or The Queen sleeps until someone comes near.
+  - **The Mining Dimension** (red ant): nothing but mountains, three times the ore with gems showing on the cliffs, dinosaurs and aliens, the Basilisk's maze, Kyuubi's shrine, giant bee hives, alien labs, Ender Knight towers, shadow dungeons and the Leonopteryx's nest on the highest peak.
+  - **Village Mania** (rainbow ant): villages everywhere, a damsel in distress, spider and red ant hangouts.
+  - **The Islands** (unstable ant): a low meadow of scraggly apple trees under a sky full of floating islands. Island blocks on the ground rise into **drifting islands** (made of mycelium, end stone and diamonds) that carry whatever you build on them. Down on the meadow: castles, an Ender castle, an Inca pyramid, a robot lab, a greenhouse, the nightmare rookery, the White House, a giant pumpkin and a rainbow with a pot of gold. Place an island block anywhere to raise your own.
+  - **The Crystal Dimension** (termite): you must arrive with an empty inventory and no armour. Crystal hills and seas, pink and blue crystal trees, crystal cows, fairies, rats, urchins, rotators and the Vortex; battle towers, rotator stations, haunted houses, fairy trees and urchin pits.
+  - **Chaos** (butterfly): a green cavern the size of a world, glowstone in the roof, trees and lakes on the floor, wings everywhere, and the Lurking Terror in the dark.
+  - `/dimension utopia|mining|village_mania|islands|crystal|chaos` and `/locate <structure>` work too.
 - **83 creatures**: dinosaurs (T. rex, alosaurus, velocity raptors, cryolophosaurus, baryonyx, camarasaurus, basilisk...), dragons, Spyro, water dragons, cloud sharks, the leonopteryx, giant bugs (mantises, stink bugs, Hercules beetles, emperor scorpions), sea monsters, whales, ghosts, Ender knights and reapers, triffids, worms, urchins and many cute critters. Tame Spyro, the baryonyx or the camarasaurus with food, ride the camarasaurus or an ostrich, and find every one's spawn egg in the **OreSpawn** creative tab.
 
 ## Building and crafting
@@ -97,9 +105,11 @@ The title screen shows the controller's state in the bottom-left corner, with wh
 3. Use Edge or Chrome. If the game runs inside another app's window, open it in a browser tab instead.
 4. Close Steam / DS4Windows if they are running (they can take the controller over), or plug the controller in with a cable.
 5. *Options > Touch & Controller > Controller Test* shows every button live and lets you remap them.
+6. Works in one place (say, the published game) but not in your Chrome? Try a private window (Ctrl+Shift+N): if it works there, one of your extensions hides the controller. Also check the version in the top-left corner of the title screen: an old copy may be missing fixes (see below).
+
 
 ## Updating your copy (no more zips)
-Run **Update DreamLand.bat** (Windows) or `./update.sh` (Mac/Linux) in the DreamLand folder. It needs [Git](https://git-scm.com/downloads); the first run links the folder to GitHub, every later run downloads only what changed. Your worlds are kept because they live in your browser. Reload the game page afterwards (Ctrl+F5).
+Run **Update DreamLand.bat** (Windows) or `./update.sh` (Mac/Linux) in the DreamLand folder. With [Git](https://git-scm.com/downloads) installed it downloads only what changed; without Git it fetches the latest zip from GitHub and unpacks it over the folder for you. Your worlds are kept because they live in your browser. Reload the game page afterwards (Ctrl+F5). The title screen tells you when a newer version is out (it asks GitHub for the version number, nothing else).
 
 From **Visual Studio Code**: open the DreamLand folder, open *Terminal > New Terminal* and type `git pull` (or `.\"Update DreamLand.bat"` if you started from a zip). To get a fresh copy instead of a zip: `git clone https://github.com/InHard2/DreamLand.git`.
 
